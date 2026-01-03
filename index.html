@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Romania Din Suflet</title>
+    <meta
+      name="description"
+      content="Romania Din Suflet — știri, rețete, vedete, sport, utile și horoscop."
+    />
+
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Sari la conținut</a>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="./" aria-label="Romania Din Suflet - Acasă">
+          <img
+            class="brand-mark"
+            src="./assets/logo.svg"
+            width="40"
+            height="40"
+            alt=""
+            aria-hidden="true"
+          />
+          <div class="brand-text">
+            <span class="brand-name">Romania</span>
+            <span class="brand-sub">Din Suflet</span>
+          </div>
+        </a>
+
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Deschide meniul"
+          aria-controls="primary-nav"
+          aria-expanded="false"
+        >
+          <span aria-hidden="true" class="nav-toggle-lines"></span>
+        </button>
+
+        <nav class="site-nav" aria-label="Navigație principală" id="primary-nav">
+          <a href="#stiri">Stiri</a>
+          <a href="#retete">Retete</a>
+          <a href="#vedete">Vedete</a>
+          <a href="#sport">Sport</a>
+          <a href="#utile">Utile</a>
+          <a href="#horoscop">Horoscop</a>
+          <a href="#despre">Despre noi</a>
+          <a href="#contact">Contact</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="site-main">
+      <section class="hero" aria-labelledby="page-title">
+        <h1 id="page-title">Home</h1>
+      </section>
+
+      <section class="feed" aria-label="Articole recente">
+        <div class="container">
+          <ul class="post-list">
+            <li class="post">
+              <a class="post-link" href="#stiri">
+                <img
+                  class="post-thumb"
+                  src="./assets/thumb-1.svg"
+                  width="120"
+                  height="120"
+                  alt="Miniatură articol"
+                  loading="lazy"
+                />
+                <div class="post-text">
+                  <h2 class="post-title">
+                    Romania in 2026: schimbari importante pentru mai multe
+                    categorii de romani
+                  </h2>
+                </div>
+              </a>
+            </li>
+
+            <li class="post">
+              <a class="post-link" href="#horoscop">
+                <img
+                  class="post-thumb"
+                  src="./assets/thumb-2.svg"
+                  width="120"
+                  height="120"
+                  alt="Miniatură articol"
+                  loading="lazy"
+                />
+                <div class="post-text">
+                  <h2 class="post-title">
+                    Previziuni pentru 2026: ce se schimba pentru anumite zodii
+                  </h2>
+                </div>
+              </a>
+            </li>
+
+            <li class="post">
+              <a class="post-link" href="#vedete">
+                <img
+                  class="post-thumb"
+                  src="./assets/thumb-3.svg"
+                  width="120"
+                  height="120"
+                  alt="Miniatură articol"
+                  loading="lazy"
+                />
+                <div class="post-text">
+                  <h2 class="post-title">
+                    Revelion cu emotii si promisiuni: inceput de an cu surprize
+                  </h2>
+                </div>
+              </a>
+            </li>
+
+            <li class="post">
+              <a class="post-link" href="#stiri">
+                <img
+                  class="post-thumb"
+                  src="./assets/thumb-4.svg"
+                  width="120"
+                  height="120"
+                  alt="Miniatură articol"
+                  loading="lazy"
+                />
+                <div class="post-text">
+                  <h2 class="post-title">
+                    Povesti de suflet: oameni, locuri si momente care ne unesc
+                  </h2>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" id="contact">
+      <div class="container footer-inner">
+        <p class="footer-brand">Romania Din Suflet</p>
+        <p class="footer-muted">
+          © <span id="year"></span> Toate drepturile rezervate.
+        </p>
+      </div>
+    </footer>
+
+    <script src="./script.js" defer></script>
+  </body>
+</html>
