@@ -1,0 +1,16 @@
+name: Publish Cron
+
+on:
+  schedule:
+    - cron: "0 * * * *" # every hour
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call publish endpoint
+        run: curl -fsS "$CRON_URL"
+        env:
+          CRON_URL: ${{ secrets.CRON_URL }}
+
