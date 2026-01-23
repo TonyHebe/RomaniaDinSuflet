@@ -1,0 +1,25 @@
+name: Discover Sources (RSS)
+
+on:
+  schedule:
+    - cron: "5 * * * *" # every hour, minute 5
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Discover and enqueue URLs
+        run: node scripts/discover-feeds.mjs
+        env:
+          SOURCES_API_URL: ${{ secrets.SOURCES_API_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+

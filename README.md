@@ -128,3 +128,15 @@ curl "https://YOUR_DOMAIN/api/cron/publish?secret=$CRON_SECRET"
 
 If Vercel Cron is unavailable (Free plan), schedule step 4 from an external scheduler
 (GitHub Actions cron, cron-job.org, UptimeRobot, etc).
+
+## Fully automatic mode (discovery + publish)
+
+This repo includes two GitHub Actions workflows:
+
+- `.github/workflows/publish-cron.yml`: calls `GET /api/cron/publish` on a schedule (consumes the queue)
+- `.github/workflows/discover-cron.yml`: fetches RSS feeds and calls `POST /api/sources` (fills the queue)
+
+To enable discovery, add these GitHub repo secrets:
+
+- `SOURCES_API_URL` = `https://YOUR_DOMAIN/api/sources`
+- `ADMIN_SECRET` = the same value you set in Vercel
