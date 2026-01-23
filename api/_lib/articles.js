@@ -1,4 +1,5 @@
 import { getPool } from "./db.js";
+import { slugify } from "./slug.js";
 
 export function toExcerpt(text, maxLen = 160) {
   const cleaned = String(text || "")
@@ -51,5 +52,51 @@ export async function getArticleBySlug(slug) {
     [slug],
   );
   return rows[0] ?? null;
+}
+
+export async function insertArticle({
+  title,
+  content,
+  excerpt = null,
+  imageUrl = null,
+  category = "stiri",
+} = {}) {
+  const pool = getPool();
+  const t = String(title || "").trim();
+  const c = String(content || "").trim();
+  if (!t) throw new Error("Missing title");
+  if (!c) throw new Error("Missing content");
+
+  const base = slugify(t);
+  let lastErr;
+  for (let i = 0; i < 10; i += 1) {
+    const slug = i === 0 ? base : `${base}-${i + 1}`;
+    try {
+      const { rows } = await pool.query(
+        `
+          insert into articles (slug, title, content, excerpt, image_url, category, status, published_at, created_at)
+          values ($1, $2, $3, $4, $5, $6, 'published', now(), now())
+          returning slug
+        `,
+        [
+          slug,
+          t,
+          c,
+          excerpt ?? toExcerpt(c),
+          imageUrl ? String(imageUrl) : null,
+          String(category || "stiri"),
+        ],
+      );
+      return rows[0]?.slug || slug;
+    } catch (err) {
+      // 23505: unique_violation
+      if (err?.code === "23505") {
+        lastErr = err;
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr || new Error("Failed to generate unique slug");
 }
 

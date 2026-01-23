@@ -31,6 +31,31 @@ create index if not exists articles_category_published_at_idx
   on articles (category, published_at desc);
 ```
 
+### Source queue (for automation)
+
+To make the publish workflow **retry-safe** and prevent duplicates, create a `source_queue` table.
+
+Run this SQL once:
+
+```sql
+create table if not exists source_queue (
+  id bigserial primary key,
+  source_url text unique not null,
+  status text not null default 'pending', -- pending | processing | posted | failed
+  attempt_count int not null default 0,
+  last_error text,
+  claimed_at timestamptz,
+  processed_at timestamptz,
+  published_slug text,
+  fb_post_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists source_queue_status_created_at_idx
+  on source_queue (status, created_at asc);
+```
+
 Example insert:
 
 ```sql
@@ -49,6 +74,7 @@ values (
 
 - `GET /api/articles?category=stiri&limit=9`
 - `GET /api/articles/:slug`
+- `POST /api/sources` (enqueue source URLs)
 
 ## Vercel Cron (scaffold)
 
@@ -67,6 +93,8 @@ Optional protection:
 
 - `DATABASE_URL` (required)
 - `CRON_SECRET` (optional, recommended)
+- `ADMIN_SECRET` (optional, recommended; protects `POST /api/sources`)
+- `SITE_URL` (optional; e.g. `https://www.romaniadinsuflet.ro` for building canonical links)
 
 Later (when we implement automation pipeline):
 
@@ -74,3 +102,41 @@ Later (when we implement automation pipeline):
 - `APIFY_TOKEN`
 - `FB_PAGE_TOKEN`
 - `FB_PAGE_ID`
+
+## Workflow (manual feed → publish job)
+
+1) Create the `source_queue` table (see SQL above).
+2) In Vercel → Project → Settings → Environment Variables set:
+   - `DATABASE_URL`
+   - `CRON_SECRET` (recommended)
+   - `ADMIN_SECRET` (recommended)
+   - optional: `OPENAI_API_KEY`, `FB_PAGE_ID`, `FB_PAGE_TOKEN`, `SITE_URL`
+3) Enqueue a source URL:
+
+```bash
+curl -X POST "https://YOUR_DOMAIN/api/sources" \
+  -H "content-type: application/json" \
+  -H "x-admin-secret: $ADMIN_SECRET" \
+  -d '{"urls":["https://example.com/some-article"]}'
+```
+
+4) Run the publish worker once (processes 1 queued URL per call):
+
+```bash
+curl "https://YOUR_DOMAIN/api/cron/publish?secret=$CRON_SECRET"
+```
+
+If Vercel Cron is unavailable (Free plan), schedule step 4 from an external scheduler
+(GitHub Actions cron, cron-job.org, UptimeRobot, etc).
+
+## Fully automatic mode (discovery + publish)
+
+This repo includes two GitHub Actions workflows:
+
+- `.github/workflows/publish-cron.yml`: calls `GET /api/cron/publish` on a schedule (consumes the queue)
+- `.github/workflows/discover-cron.yml`: fetches RSS feeds and calls `POST /api/sources` (fills the queue)
+
+To enable discovery, add these GitHub repo secrets:
+
+- `SOURCES_API_URL` = `https://YOUR_DOMAIN/api/sources`
+- `ADMIN_SECRET` = the same value you set in Vercel

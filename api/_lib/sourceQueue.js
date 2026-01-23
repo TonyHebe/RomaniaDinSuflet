@@ -1,0 +1,138 @@
+import { getPool } from "./db.js";
+
+const DEFAULT_MAX_ATTEMPTS = 5;
+
+function normalizeError(err) {
+  if (!err) return "Unknown error";
+  if (typeof err === "string") return err;
+  return String(err?.message || err);
+}
+
+export async function enqueueSourceUrls(urls) {
+  const pool = getPool();
+  const clean = Array.from(
+    new Set(
+      (Array.isArray(urls) ? urls : [])
+        .map((u) => String(u || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const results = [];
+  for (const url of clean) {
+    // validate format
+    // eslint-disable-next-line no-new
+    new URL(url);
+    const { rows } = await pool.query(
+      `
+        insert into source_queue (source_url, status, created_at, updated_at)
+        values ($1, 'pending', now(), now())
+        on conflict (source_url) do update
+          set updated_at = now()
+        returning id, source_url as "sourceUrl", status, attempt_count as "attemptCount"
+      `,
+      [url],
+    );
+    results.push(rows[0]);
+  }
+  return results;
+}
+
+export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {}) {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+
+    const { rows: selected } = await client.query(
+      `
+        select id, source_url as "sourceUrl", attempt_count as "attemptCount"
+        from source_queue
+        where status = 'pending' and attempt_count < $1
+        order by created_at asc
+        for update skip locked
+        limit 1
+      `,
+      [maxAttempts],
+    );
+
+    const row = selected[0];
+    if (!row) {
+      await client.query("commit");
+      return null;
+    }
+
+    const { rows: updated } = await client.query(
+      `
+        update source_queue
+        set status = 'processing',
+            claimed_at = now(),
+            updated_at = now()
+        where id = $1
+        returning id, source_url as "sourceUrl", status, attempt_count as "attemptCount", claimed_at as "claimedAt"
+      `,
+      [row.id],
+    );
+
+    await client.query("commit");
+    return updated[0] ?? null;
+  } catch (err) {
+    try {
+      await client.query("rollback");
+    } catch {
+      // ignore
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function markSourcePosted(id, { publishedSlug = null, fbPostId = null } = {}) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `
+      update source_queue
+      set status = 'posted',
+          processed_at = now(),
+          updated_at = now(),
+          last_error = null,
+          published_slug = $2,
+          fb_post_id = $3
+      where id = $1
+      returning id, status, published_slug as "publishedSlug", fb_post_id as "fbPostId"
+    `,
+    [id, publishedSlug, fbPostId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function markSourceFailed(
+  id,
+  err,
+  { maxAttempts = DEFAULT_MAX_ATTEMPTS } = {},
+) {
+  const pool = getPool();
+  const message = normalizeError(err);
+  const { rows } = await pool.query(
+    `
+      update source_queue
+      set attempt_count = attempt_count + 1,
+          last_error = $2,
+          updated_at = now(),
+          processed_at = case
+            when (attempt_count + 1) >= $3 then now()
+            else processed_at
+          end,
+          status = case
+            when (attempt_count + 1) >= $3 then 'failed'
+            else 'pending'
+          end
+      where id = $1
+      returning id, status, attempt_count as "attemptCount", last_error as "lastError"
+    `,
+    [id, message, maxAttempts],
+  );
+  return rows[0] ?? null;
+}
+
