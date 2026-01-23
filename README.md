@@ -52,9 +52,9 @@ values (
 
 ## Vercel Cron (scaffold)
 
-`vercel.json` schedules:
+This repo includes a cron endpoint at `GET /api/cron/publish`.
 
-- `/api/cron/publish` every 6 hours
+**Important**: Vercel Cron Jobs require a paid plan. If your Vercel project is on **Free**, keep `vercel.json` cron config disabled and trigger the endpoint from an external scheduler instead (e.g. GitHub Actions cron, cron-job.org) using `CRON_SECRET`.
 
 Optional protection:
 
