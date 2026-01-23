@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Articol — Romania Din Suflet</title>
+    <meta name="description" content="Articol — Romania Din Suflet" />
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Sari la conținut</a>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="./" aria-label="Romania Din Suflet - Acasă">
+          <img
+            class="brand-mark"
+            src="./assets/logo.svg"
+            width="40"
+            height="40"
+            alt=""
+            aria-hidden="true"
+          />
+          <div class="brand-text">
+            <span class="brand-name">Romania</span>
+            <span class="brand-sub">Din Suflet</span>
+          </div>
+        </a>
+      </div>
+    </header>
+
+    <main id="main" class="site-main">
+      <section class="section" aria-labelledby="article-title">
+        <div class="container">
+          <div class="section-head">
+            <h1 class="section-title" id="article-title">Se încarcă…</h1>
+            <p class="section-muted" id="article-meta"></p>
+          </div>
+
+          <img
+            id="article-image"
+            class="article-thumb"
+            alt=""
+            loading="lazy"
+            hidden
+          />
+
+          <div id="article-content" style="margin-top: 18px; line-height: 1.75"></div>
+          <p class="section-muted" id="article-error" hidden>
+            Nu am putut încărca articolul.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p class="footer-brand">Romania Din Suflet</p>
+        <p class="footer-muted">
+          © <span id="year"></span> Toate drepturile rezervate.
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      (() => {
+        const yearEl = document.getElementById("year");
+        if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
+        const titleEl = document.getElementById("article-title");
+        const metaEl = document.getElementById("article-meta");
+        const contentEl = document.getElementById("article-content");
+        const imageEl = document.getElementById("article-image");
+        const errorEl = document.getElementById("article-error");
+
+        const params = new URLSearchParams(location.search);
+        const slug = params.get("slug");
+
+        if (!slug) {
+          if (errorEl) errorEl.hidden = false;
+          return;
+        }
+
+        function escapeHtml(str) {
+          return String(str)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+        }
+
+        async function load() {
+          try {
+            const res = await fetch(`/api/articles/${encodeURIComponent(slug)}`, {
+              headers: { Accept: "application/json" },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const a = await res.json();
+
+            if (titleEl) titleEl.textContent = a?.title || "Articol";
+            if (metaEl) {
+              metaEl.textContent = a?.publishedAt
+                ? new Date(a.publishedAt).toLocaleDateString("ro-RO", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "";
+            }
+
+            if (imageEl && a?.imageUrl) {
+              imageEl.src = a.imageUrl;
+              imageEl.hidden = false;
+            }
+
+            // Body is stored as plain text; render safe paragraphs.
+            const body = String(a?.content || "");
+            const paragraphs = body
+              .split(/\n{2,}/g)
+              .map((p) => p.trim())
+              .filter(Boolean)
+              .map((p) => `<p>${escapeHtml(p)}</p>`)
+              .join("");
+
+            if (contentEl) contentEl.innerHTML = paragraphs || "<p></p>";
+          } catch (e) {
+            if (errorEl) errorEl.hidden = false;
+          }
+        }
+
+        load();
+      })();
+    </script>
+  </body>
+</html>
+
