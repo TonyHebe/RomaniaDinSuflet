@@ -95,6 +95,7 @@ Optional protection:
 - `CRON_SECRET` (optional, recommended)
 - `ADMIN_SECRET` (optional, recommended; protects `POST /api/sources`)
 - `SITE_URL` (optional; e.g. `https://www.romaniadinsuflet.ro` for building canonical links)
+- `MIN_PUBLISH_INTERVAL_SECONDS` (optional; publish cooldown to prevent bursts when the scheduler loops)
 
 Later (when we implement automation pipeline):
 
@@ -135,6 +136,14 @@ This repo includes two GitHub Actions workflows:
 
 - `.github/workflows/publish-cron.yml`: calls `GET /api/cron/publish` on a schedule (consumes the queue)
 - `.github/workflows/discover-cron.yml`: fetches RSS feeds and calls `POST /api/sources` (fills the queue)
+
+### Why did multiple posts publish “all of a sudden”?
+
+If your scheduler calls `GET /api/cron/publish` multiple times in a single run (e.g. `MAX_CALLS_PER_RUN > 1`),
+it will publish multiple queued items back-to-back. To prevent bursts, set:
+
+- `MAX_CALLS_PER_RUN=1` in the scheduler, and/or
+- `MIN_PUBLISH_INTERVAL_SECONDS` in the API to enforce spacing between publishes.
 
 To enable discovery, add these GitHub repo secrets:
 
