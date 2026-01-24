@@ -1,0 +1,17 @@
+name: Heartbeat Cron
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes (UTC)
+  workflow_dispatch:
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log heartbeat time
+        run: |
+          echo "Heartbeat: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "Repo: $GITHUB_REPOSITORY"
+          echo "Ref:  $GITHUB_REF"
+
