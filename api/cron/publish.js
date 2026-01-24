@@ -1,4 +1,4 @@
-import { insertArticle } from "../_lib/articles.js";
+import { getSecondsSinceLastPublish, insertArticle } from "../_lib/articles.js";
 import {
   claimNextSource,
   markSourceFailed,
@@ -24,6 +24,29 @@ export default async function handler(req, res) {
         req.headers["authorization"]?.replace(/^Bearer\s+/i, "");
       if (!provided || String(provided) !== String(secret)) {
         res.status(401).json({ ok: false, error: "Unauthorized" });
+        return;
+      }
+    }
+
+    // Optional publish cooldown (prevents batching even if the runner loops).
+    // Example: MIN_PUBLISH_INTERVAL_SECONDS=3600 allows max 1 publish/hour.
+    const minIntervalSeconds = Number.parseInt(
+      process.env.MIN_PUBLISH_INTERVAL_SECONDS || "0",
+      10,
+    );
+    if (Number.isFinite(minIntervalSeconds) && minIntervalSeconds > 0) {
+      const secondsSince = await getSecondsSinceLastPublish({ category: "stiri" });
+      if (secondsSince !== null && secondsSince < minIntervalSeconds) {
+        const retryAfterSeconds = Math.max(
+          1,
+          Math.ceil(minIntervalSeconds - secondsSince),
+        );
+        res.status(200).json({
+          ok: true,
+          cooldown: true,
+          message: `Cooldown active. Try again in ~${retryAfterSeconds}s.`,
+          retryAfterSeconds,
+        });
         return;
       }
     }

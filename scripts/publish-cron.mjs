@@ -8,7 +8,7 @@
  * shell-quoting issues (backticks, ${}, etc.) and to allow top-level await.
  */
  
-const max = Number.parseInt(process.env.MAX_CALLS_PER_RUN || "10", 10);
+const max = Number.parseInt(process.env.MAX_CALLS_PER_RUN || "1", 10);
 const url = process.env.CRON_URL;
  
 if (!url) {
@@ -55,6 +55,15 @@ for (let i = 0; i < max; i++) {
       break;
     }
  
+    // If the API enforces a cooldown, stop the loop early.
+    if (
+      data?.cooldown === true ||
+      (typeof data?.message === "string" && /cooldown|rate limit/i.test(data.message))
+    ) {
+      console.log("Cooldown detected; stopping early.");
+      break;
+    }
+
     if (data?.processed?.publishedSlug) processed += 1;
     if (!res.ok || data?.ok === false) failures += 1;
   } catch (err) {

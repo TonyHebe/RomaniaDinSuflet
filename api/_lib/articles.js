@@ -10,6 +10,24 @@ export function toExcerpt(text, maxLen = 160) {
   return `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
 }
 
+export async function getSecondsSinceLastPublish({ category = "stiri" } = {}) {
+  const pool = getPool();
+  const cat = String(category || "stiri");
+  const { rows } = await pool.query(
+    `
+      select extract(epoch from (now() - max(published_at))) as "seconds"
+      from articles
+      where category = $1 and status = 'published'
+    `,
+    [cat],
+  );
+
+  const seconds = rows?.[0]?.seconds;
+  if (seconds === null || seconds === undefined) return null;
+  const n = Number(seconds);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function listArticles({ category = "stiri", limit = 9 } = {}) {
   const pool = getPool();
   const lim = Math.max(1, Math.min(50, Number(limit) || 9));
