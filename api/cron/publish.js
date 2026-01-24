@@ -90,7 +90,8 @@ export default async function handler(req, res) {
       });
     } catch (err) {
       const marked = await markSourceFailed(job.id, err);
-      res.status(500).json({
+      // Don't fail the cron run for a single bad URL; mark it and move on.
+      res.status(200).json({
         ok: false,
         error: String(err?.message || err),
         job: { id: job.id, sourceUrl: job.sourceUrl },
