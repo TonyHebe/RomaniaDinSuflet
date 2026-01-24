@@ -9,13 +9,21 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Call publish endpoint (batch)
-        run: node -e "const max=Number(process.env.MAX_CALLS_PER_RUN||'10');const url=process.env.CRON_URL;if(!url) throw new Error('Missing CRON_URL');let processed=0,failures=0,noPending=false;for(let i=0;i<max;i++){const res=await fetch(url,{headers:{'user-agent':'RDS-PublishCron/1.0'}});const text=await res.text();let data=null;try{data=JSON.parse(text);}catch{}console.log(`call ${i+1}/${max}: status=${res.status}`);console.log(text);if(data?.message==='No pending sources.'){noPending=true;break;}if(data?.processed?.publishedSlug) processed+=1;if(data?.ok===false) failures+=1;}console.log(JSON.stringify({processed,failures,noPending,max},null,2));"
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAX_CALLS_PER_RUN="${MAX_CALLS_PER_RUN:-10}"
+          for i in $(seq 1 "$MAX_CALLS_PER_RUN"); do
+            echo "call ${i}/${MAX_CALLS_PER_RUN}"
+            out="$(curl -fsS "$CRON_URL")"
+            echo "$out"
+            echo
+            if echo "$out" | grep -q "No pending sources"; then
+              echo "Queue empty; stopping early."
+              break
+            fi
+          done
         env:
           CRON_URL: ${{ secrets.CRON_URL }}
           MAX_CALLS_PER_RUN: 10
