@@ -1,4 +1,6 @@
 name: Heartbeat Cron
+# NOTE: Touching this file can re-activate GitHub scheduled runs in cases where
+# schedules silently stop (e.g., workflow last-modifier removed from the repo).
 
 permissions: read-all
 
