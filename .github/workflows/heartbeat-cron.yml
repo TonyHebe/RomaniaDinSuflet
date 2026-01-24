@@ -1,0 +1,17 @@
+name: Heartbeat Cron
+
+permissions: read-all
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes (UTC)
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print current UTC time
+        run: |
+          echo "Heartbeat Cron is running."
+          date -u
