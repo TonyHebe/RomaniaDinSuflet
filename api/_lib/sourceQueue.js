@@ -44,23 +44,81 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
   try {
     await client.query("begin");
 
-    const { rows: selected } = await client.query(
+    // Try to avoid posting from the same site twice in a row.
+    // This makes publishing look more diverse when multiple sources are queued.
+    let lastPostedHost = null;
+    try {
+      const { rows: last } = await client.query(
+        `
+          select source_url as "sourceUrl"
+          from source_queue
+          where status = 'posted'
+          order by processed_at desc nulls last, updated_at desc
+          limit 1
+        `,
+      );
+      const lastUrl = last?.[0]?.sourceUrl;
+      if (lastUrl) lastPostedHost = new URL(String(lastUrl)).hostname.toLowerCase();
+    } catch {
+      // If parsing fails for any reason, fall back to oldest-first behavior.
+      lastPostedHost = null;
+    }
+
+    const scanLimit = 200;
+    const { rows: candidates } = await client.query(
       `
-        select id, source_url as "sourceUrl", attempt_count as "attemptCount"
+        select
+          id,
+          source_url as "sourceUrl",
+          attempt_count as "attemptCount",
+          created_at as "createdAt"
         from source_queue
         where status = 'pending' and attempt_count < $1
         order by created_at asc
         for update skip locked
-        limit 1
+        limit $2
       `,
-      [maxAttempts],
+      [maxAttempts, scanLimit],
     );
 
-    const row = selected[0];
-    if (!row) {
+    if (!candidates?.length) {
       await client.query("commit");
       return null;
     }
+
+    const enriched = candidates.map((c) => {
+      let host = null;
+      try {
+        host = new URL(String(c.sourceUrl)).hostname.toLowerCase();
+      } catch {
+        host = null;
+      }
+      return { ...c, host };
+    });
+
+    // Pick the host whose oldest queued item is earliest, excluding lastPostedHost if possible.
+    const hostToOldestCreatedAt = new Map();
+    for (const c of enriched) {
+      if (!c.host) continue;
+      const prev = hostToOldestCreatedAt.get(c.host);
+      if (!prev || c.createdAt < prev) hostToOldestCreatedAt.set(c.host, c.createdAt);
+    }
+
+    let chosenHost = null;
+    if (hostToOldestCreatedAt.size > 0) {
+      const hosts = Array.from(hostToOldestCreatedAt.entries())
+        .filter(([h]) => !lastPostedHost || h !== lastPostedHost)
+        .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
+      if (hosts.length > 0) chosenHost = hosts[0][0];
+    }
+
+    const pickFromHost = chosenHost
+      ? enriched
+          .filter((c) => c.host === chosenHost)
+          .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0))[0]
+      : null;
+
+    const row = pickFromHost || enriched[0];
 
     const { rows: updated } = await client.query(
       `
