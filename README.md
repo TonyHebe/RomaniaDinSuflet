@@ -97,6 +97,34 @@ Optional protection:
 - `SITE_URL` (optional; e.g. `https://www.romaniadinsuflet.ro` for building canonical links)
 - `MIN_PUBLISH_INTERVAL_SECONDS` (optional; publish cooldown to prevent bursts when the scheduler loops)
 
+## Google AdSense (ads)
+
+This repo includes an AdSense integration that is **disabled by default** until you fill in your real IDs.
+
+- **Step 1 (AdSense setup)**: in Google AdSense, add your site, complete ownership verification, and wait for approval.
+- **Step 2 (create ad units)**: create one or more “Display” ad units (responsive) and copy:
+  - your **publisher id**: `ca-pub-xxxxxxxxxxxxxxxx`
+  - each ad unit’s **slot id**: a numeric id (e.g. `1234567890`)
+
+- **Step 3 (enable in HTML)**:
+  - Update the meta tag in `index.html` and `article.html`:
+    - `meta[name="adsense-client"]` → your real `ca-pub-...`
+  - Update each ad placeholder:
+    - `data-ad-slot="REPLACE_ME"` → your real numeric slot id(s)
+
+Ad placeholders live in:
+
+- `index.html` (`data-ad="home_top"`)
+- `article.html` (`data-ad="article_top"`)
+
+- **Step 4 (`ads.txt`)**: update `ads.txt` to match your publisher id:
+  - `google.com, pub-REPLACE_ME, DIRECT, f08c47fec0942fa0` → `google.com, pub-xxxxxxxxxxxxxxxx, DIRECT, f08c47fec0942fa0`
+
+Implementation details:
+
+- `ads.js` loads the AdSense script only when it detects a real `ca-pub-...` and real numeric slot id(s).
+- If AdSense is blocked (ad blockers, CSP, etc), it fails safely and the site remains usable.
+
 Later (when we implement automation pipeline):
 
 - `OPENAI_API_KEY`

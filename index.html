@@ -8,6 +8,8 @@
       name="description"
       content="Romania Din Suflet — știri, rețete, vedete, sport, utile și horoscop."
     />
+    <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
+    <meta name="adsense-client" content="ca-pub-REPLACE_ME" />
 
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
@@ -60,6 +62,21 @@
         <h1 id="page-title">Home</h1>
       </section>
 
+      <!-- AdSense: fill data-ad-slot with your real slot id to enable -->
+      <section class="ad-section" data-ad="home_top" aria-label="Publicitate" hidden>
+        <div class="container">
+          <div class="ad-label" aria-hidden="true">Publicitate</div>
+          <ins
+            class="adsbygoogle ad-slot"
+            style="display: block"
+            data-ad-client="ca-pub-REPLACE_ME"
+            data-ad-slot="REPLACE_ME"
+            data-ad-format="auto"
+            data-full-width-responsive="true"
+          ></ins>
+        </div>
+      </section>
+
       <section class="section" id="stiri" aria-labelledby="stiri-title">
         <div class="container">
           <div class="section-head">
@@ -102,6 +119,7 @@
       </div>
     </footer>
 
+    <script src="./ads.js" defer></script>
     <script src="./script.js" defer></script>
   </body>
 </html>

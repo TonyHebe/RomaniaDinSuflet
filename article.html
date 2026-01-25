@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Articol — Romania Din Suflet</title>
     <meta name="description" content="Articol — Romania Din Suflet" />
+    <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
+    <meta name="adsense-client" content="ca-pub-REPLACE_ME" />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -38,6 +40,19 @@
             <p class="section-muted" id="article-meta"></p>
           </div>
 
+          <!-- AdSense: fill data-ad-slot with your real slot id to enable -->
+          <div class="ad-section" data-ad="article_top" aria-label="Publicitate" hidden>
+            <div class="ad-label" aria-hidden="true">Publicitate</div>
+            <ins
+              class="adsbygoogle ad-slot"
+              style="display: block"
+              data-ad-client="ca-pub-REPLACE_ME"
+              data-ad-slot="REPLACE_ME"
+              data-ad-format="auto"
+              data-full-width-responsive="true"
+            ></ins>
+          </div>
+
           <img
             id="article-image"
             class="article-hero"
@@ -63,6 +78,7 @@
       </div>
     </footer>
 
+    <script src="./ads.js" defer></script>
     <script>
       (() => {
         const yearEl = document.getElementById("year");
