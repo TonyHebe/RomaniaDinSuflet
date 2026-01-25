@@ -71,6 +71,8 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
           id,
           source_url as "sourceUrl",
           attempt_count as "attemptCount",
+          published_slug as "publishedSlug",
+          fb_post_id as "fbPostId",
           created_at as "createdAt"
         from source_queue
         where status = 'pending' and attempt_count < $1
@@ -127,7 +129,14 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
             claimed_at = now(),
             updated_at = now()
         where id = $1
-        returning id, source_url as "sourceUrl", status, attempt_count as "attemptCount", claimed_at as "claimedAt"
+        returning
+          id,
+          source_url as "sourceUrl",
+          status,
+          attempt_count as "attemptCount",
+          claimed_at as "claimedAt",
+          published_slug as "publishedSlug",
+          fb_post_id as "fbPostId"
       `,
       [row.id],
     );
@@ -144,6 +153,21 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
   } finally {
     client.release();
   }
+}
+
+export async function setSourcePublishedSlug(id, publishedSlug) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `
+      update source_queue
+      set published_slug = $2,
+          updated_at = now()
+      where id = $1
+      returning id, published_slug as "publishedSlug"
+    `,
+    [id, publishedSlug ? String(publishedSlug) : null],
+  );
+  return rows[0] ?? null;
 }
 
 export async function markSourcePosted(id, { publishedSlug = null, fbPostId = null } = {}) {

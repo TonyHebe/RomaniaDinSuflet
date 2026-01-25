@@ -144,6 +144,27 @@ Later (when we implement automation pipeline):
 - `FB_PAGE_TOKEN`
 - `FB_PAGE_ID`
 
+## Facebook auto-posting (photo + title + link in comments)
+
+When `FB_PAGE_ID` and `FB_PAGE_TOKEN` are set, each published article will be posted on your Facebook Page automatically:
+
+- **Post body**: `Titlul articolului` + `Vezi în comentarii.`
+- **Post image**: uses the scraped `imageUrl` from the source article (when available)
+- **First comment**: the site link to your article (`article.html?slug=...`)
+
+If an article has no image, the system will fall back to a **link post** (still with the link also posted as a comment).
+
+### Required Facebook setup
+
+- `FB_PAGE_ID`: your Facebook Page ID
+- `FB_PAGE_TOKEN`: a **Page Access Token** with permissions to publish and comment as the Page
+
+Notes:
+
+- You must create the token in Meta Developers / Graph API Explorer or via your app.
+- The token needs the relevant permissions (commonly `pages_manage_posts` and `pages_read_engagement`), and your app/token must be allowed to publish to the Page.
+- If the token expires, posts will stop; refresh/rotate the token.
+
 ## Workflow (manual feed → publish job)
 
 1) Create the `source_queue` table (see SQL above).
