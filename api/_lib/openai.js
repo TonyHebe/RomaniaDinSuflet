@@ -6,23 +6,66 @@ function mustGetKey() {
   return key;
 }
 
-export async function rewriteWithAI({ title, content, category = "stiri" } = {}) {
+function normalizeForCompare(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[„”"“”'’]/g, "")
+    .replace(/\s*[–—-]\s*/g, "-")
+    .trim();
+}
+
+export function isBadTitle(title) {
+  const t = String(title || "").trim();
+  if (!t) return true;
+  const n = normalizeForCompare(t);
+  if (!n) return true;
+  if (n === "titlu" || n === "title") return true;
+  if (/^(titlu|title)\s*[:\-]/i.test(t)) return true;
+  if (t.length < 6) return true;
+  return false;
+}
+
+export function titlesLookSame(a, b) {
+  const na = normalizeForCompare(a);
+  const nb = normalizeForCompare(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  // very small edits (e.g. adding a period) still count as "same"
+  const min = Math.min(na.length, nb.length);
+  if (min >= 18 && (na.includes(nb) || nb.includes(na))) return true;
+  return false;
+}
+
+export async function rewriteWithAI({
+  title,
+  content,
+  category = "stiri",
+  previousBadTitle,
+} = {}) {
   const apiKey = mustGetKey();
 
   const prompt = [
     "Rescrie articolul în limba română, clar și concis, fără să copiezi fraze întregi.",
+    "Titlul trebuie să fie RESCRIS (parafrazat) și să NU fie identic cu titlul sursă.",
+    "Nu folosi cuvântul „TITLU” ca text în răspuns.",
     "Returnează exact în acest format:",
-    "Linia 1: TITLU",
+    "Linia 1: (titlu rescris, max 12-14 cuvinte)",
     "Linia 2: (goală)",
     "Restul: conținutul articolului (paragrafe separate prin linii goale).",
     "",
     `Categorie: ${category}`,
     "",
     `Titlu sursă: ${title || ""}`.trim(),
+    previousBadTitle ? `Titlu respins (nu-l folosi): ${previousBadTitle}` : null,
     "",
     "Conținut sursă:",
     String(content || "").slice(0, 12000),
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const res = await fetch(OPENAI_URL, {
     method: "POST",
@@ -52,11 +95,25 @@ export async function rewriteWithAI({ title, content, category = "stiri" } = {})
 }
 
 export function parseRewrite(text) {
-  const lines = String(text || "").split("\n");
-  const title = String(lines[0] || "").trim();
-  const body = lines.slice(1).join("\n").trim();
+  const raw = String(text || "").trim();
+  if (!raw) throw new Error("Invalid rewrite format");
+
+  const lines = raw.split("\n");
+  const firstNonEmptyIdx = lines.findIndex((l) => String(l).trim().length > 0);
+  const firstLine =
+    firstNonEmptyIdx >= 0 ? String(lines[firstNonEmptyIdx] || "").trim() : "";
+
+  // Allow responses like "TITLU: ...." even though we don't ask for it.
+  let title = firstLine.replace(/^(titlu|title)\s*[:\-]\s*/i, "").trim();
+  title = title.replace(/^["„”'’]+|["„”'’]+$/g, "").trim();
+  title = title.replace(/\s+/g, " ").trim();
+
+  const bodyLines =
+    firstNonEmptyIdx >= 0 ? lines.slice(firstNonEmptyIdx + 1) : [];
+  const body = bodyLines.join("\n").trim();
   const content = body.replace(/^\s*\n/, "").trim();
-  if (!title || !content) throw new Error("Invalid rewrite format");
+
+  if (isBadTitle(title) || !content) throw new Error("Invalid rewrite format");
   return { title, content };
 }
 

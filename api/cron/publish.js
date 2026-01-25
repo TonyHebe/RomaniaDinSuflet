@@ -5,12 +5,37 @@ import {
   markSourcePosted,
 } from "../_lib/sourceQueue.js";
 import { scrapeSourceUrl } from "../_lib/scrape.js";
-import { parseRewrite, rewriteWithAI } from "../_lib/openai.js";
+import {
+  isBadTitle,
+  parseRewrite,
+  rewriteWithAI,
+  titlesLookSame,
+} from "../_lib/openai.js";
 import {
   commentOnFacebookPost,
   postPhotoToFacebook,
   sleep,
 } from "../_lib/facebook.js";
+
+function deriveTitleFromText(text) {
+  const t = String(text || "").trim();
+  if (!t) return "";
+  const firstParagraph =
+    t
+      .split(/\n{2,}/g)
+      .map((p) => p.trim())
+      .filter(Boolean)[0] || "";
+  const sentence =
+    firstParagraph
+      .split(/(?<=[.!?])\s+/g)
+      .map((s) => s.trim())
+      .filter(Boolean)[0] || firstParagraph;
+  const cleaned = sentence.replace(/\s+/g, " ").trim().replace(/[.?!]+$/, "");
+  if (!cleaned) return "";
+  const maxLen = 90;
+  if (cleaned.length <= maxLen) return cleaned;
+  return `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
+}
 
 export default async function handler(req, res) {
   try {
@@ -66,13 +91,35 @@ export default async function handler(req, res) {
 
       // Optional AI rewrite.
       if (process.env.OPENAI_API_KEY) {
-        const rewritten = await rewriteWithAI({
+        const rewritten1 = await rewriteWithAI({
           title: scraped.title,
           content: scraped.content,
         });
-        const parsed = parseRewrite(rewritten);
+        let parsed = parseRewrite(rewritten1);
         finalTitle = parsed.title;
         finalContent = parsed.content;
+
+        // Hard guardrails: no placeholder titles and not identical to source title.
+        if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
+          try {
+            const rewritten2 = await rewriteWithAI({
+              title: scraped.title,
+              content: scraped.content,
+              previousBadTitle: finalTitle,
+            });
+            parsed = parseRewrite(rewritten2);
+            finalTitle = parsed.title;
+            finalContent = parsed.content;
+          } catch {
+            // ignore; we'll fall back below
+          }
+        }
+
+        if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
+          // Last-resort: generate a headline from rewritten content (still rephrased).
+          const derived = deriveTitleFromText(finalContent);
+          if (derived && !titlesLookSame(derived, scraped.title)) finalTitle = derived;
+        }
       }
 
       const publishedSlug = await insertArticle({

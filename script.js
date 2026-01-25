@@ -50,7 +50,10 @@
       empty.hidden = true;
       list.innerHTML = items
         .map((a) => {
-          const title = escapeHtml(String(a.title ?? ""));
+          const rawTitle = String(a.title ?? "").trim();
+          const titleText =
+            rawTitle && !/^titlu$/i.test(rawTitle) ? rawTitle : String(a.excerpt ?? "").trim();
+          const title = escapeHtml(titleText || "Fără titlu");
           const slug = encodeURIComponent(String(a.slug ?? ""));
           const imageUrl = escapeAttr(String(a.imageUrl ?? ""));
           const excerpt = escapeHtml(String(a.excerpt ?? ""));
