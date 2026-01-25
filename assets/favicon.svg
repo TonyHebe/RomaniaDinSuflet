@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Romania Din Suflet">
+  <defs>
+    <clipPath id="heartClip">
+      <path d="M32 58S7 43 7 24C7 14 15 7 24 7c5.1 0 8.8 2.6 10.4 5.7C36 9.6 39.7 7 44.8 7 53 7 61 14 61 24 61 43 32 58 32 58Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#heartClip)">
+    <rect x="0" y="0" width="21.5" height="64" fill="#1f4aa8"/>
+    <rect x="21.5" y="0" width="21" height="64" fill="#f5c400"/>
+    <rect x="42.5" y="0" width="21.5" height="64" fill="#cc1f2f"/>
+  </g>
+  <path d="M32 58S7 43 7 24C7 14 15 7 24 7c5.1 0 8.8 2.6 10.4 5.7C36 9.6 39.7 7 44.8 7 53 7 61 14 61 24 61 43 32 58 32 58Z"
+        fill="none" stroke="rgba(16,17,20,0.35)" stroke-width="1"/>
+</svg>
