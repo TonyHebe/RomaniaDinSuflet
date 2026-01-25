@@ -15,9 +15,7 @@
   }
 
   function ensureAdSenseScript(client) {
-    const existing = document.querySelector(
-      'script[data-adsense="true"][src*="pagead/js/adsbygoogle.js"]',
-    );
+    const existing = document.querySelector('script[src*="pagead/js/adsbygoogle.js"]');
     if (existing) return;
 
     const s = document.createElement("script");
