@@ -28,6 +28,12 @@ export async function getSecondsSinceLastPublish({ category = "stiri" } = {}) {
   return Number.isFinite(n) ? n : null;
 }
 
+function clampInt(value, { min, max, fallback }) {
+  const n = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
 export async function listArticles({ category = "stiri", limit = 9 } = {}) {
   const pool = getPool();
   const lim = Math.max(1, Math.min(50, Number(limit) || 9));
@@ -49,6 +55,56 @@ export async function listArticles({ category = "stiri", limit = 9 } = {}) {
     [cat, lim],
   );
   return rows;
+}
+
+export async function listArticlesPage({
+  category = "stiri",
+  page = 1,
+  pageSize = 9,
+} = {}) {
+  const pool = getPool();
+  const cat = String(category || "stiri");
+  const size = clampInt(pageSize, { min: 1, max: 50, fallback: 9 });
+  const p = clampInt(page, { min: 1, max: 1_000_000, fallback: 1 });
+  const offset = (p - 1) * size;
+
+  const [{ rows: countRows }, { rows: itemRows }] = await Promise.all([
+    pool.query(
+      `
+        select count(*)::int as total
+        from articles
+        where category = $1 and status = 'published'
+      `,
+      [cat],
+    ),
+    pool.query(
+      `
+        select
+          slug,
+          title,
+          image_url as "imageUrl",
+          excerpt,
+          published_at as "publishedAt"
+        from articles
+        where category = $1 and status = 'published'
+        order by published_at desc
+        limit $2
+        offset $3
+      `,
+      [cat, size, offset],
+    ),
+  ]);
+
+  const total = Number(countRows?.[0]?.total || 0);
+  const totalPages = total > 0 ? Math.ceil(total / size) : 0;
+
+  return {
+    items: itemRows,
+    page: p,
+    pageSize: size,
+    total,
+    totalPages,
+  };
 }
 
 export async function getArticleBySlug(slug) {
