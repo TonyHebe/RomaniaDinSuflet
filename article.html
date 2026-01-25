@@ -7,6 +7,12 @@
     <meta name="description" content="Articol — Romania Din Suflet" />
     <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
     <meta name="adsense-client" content="ca-pub-REPLACE_ME" />
+    <!-- In-article ads (inside article text). Provide one or more numeric slot IDs, comma-separated. -->
+    <meta name="adsense-article-incontent-slots" content="REPLACE_ME" />
+    <!-- Insert an ad after every N paragraphs (example: 3 = after 3rd, 6th, 9th...). -->
+    <meta name="adsense-article-incontent-every" content="3" />
+    <!-- Start inserting only after paragraph N (example: 2 = after the 2nd paragraph). -->
+    <meta name="adsense-article-incontent-start" content="2" />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -61,7 +67,7 @@
             hidden
           />
 
-          <div id="article-content" style="margin-top: 18px; line-height: 1.75"></div>
+          <div id="article-content" class="article-content"></div>
           <p class="section-muted" id="article-error" hidden>
             Nu am putut încărca articolul.
           </p>
@@ -107,6 +113,60 @@
             .replaceAll("'", "&#039;");
         }
 
+        function getMetaContent(name) {
+          const el = document.querySelector(`meta[name="${CSS.escape(name)}"]`);
+          return el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
+        }
+
+        function getInContentAdConfig() {
+          const slotsRaw = getMetaContent("adsense-article-incontent-slots");
+          const everyRaw = getMetaContent("adsense-article-incontent-every");
+          const startRaw = getMetaContent("adsense-article-incontent-start");
+
+          const slots = slotsRaw
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .filter((s) => /^\d{6,}$/.test(s));
+
+          const every = Number.parseInt(String(everyRaw || "3"), 10);
+          const start = Number.parseInt(String(startRaw || "2"), 10);
+
+          return {
+            slots,
+            every: Number.isFinite(every) && every > 0 ? every : 3,
+            start: Number.isFinite(start) && start > 0 ? start : 2,
+          };
+        }
+
+        function renderInContentAd({ slot }) {
+          // Container is hidden by default; ads.js will unhide when properly configured.
+          return `
+            <div class="ad-section ad-incontent" data-ad="article_incontent" aria-label="Publicitate" hidden>
+              <div class="ad-label" aria-hidden="true">Publicitate</div>
+              <ins
+                class="adsbygoogle ad-slot"
+                style="display: block"
+                data-ad-client="ca-pub-REPLACE_ME"
+                data-ad-slot="${escapeHtml(String(slot))}"
+                data-ad-format="auto"
+                data-full-width-responsive="true"
+              ></ins>
+            </div>
+          `;
+        }
+
+        function maybeInitAds() {
+          const fn = window.__RDS_INIT_ADS;
+          if (typeof fn === "function") {
+            try {
+              fn();
+            } catch {
+              // Ignore (ad blockers, CSP, etc). Site should still function.
+            }
+          }
+        }
+
         async function load() {
           try {
             const res = await fetch(`/api/articles/${encodeURIComponent(slug)}`, {
@@ -133,14 +193,30 @@
 
             // Body is stored as plain text; render safe paragraphs.
             const body = String(a?.content || "");
-            const paragraphs = body
+            const rawParagraphs = body
               .split(/\n{2,}/g)
               .map((p) => p.trim())
-              .filter(Boolean)
-              .map((p) => `<p>${escapeHtml(p)}</p>`)
-              .join("");
+              .filter(Boolean);
 
-            if (contentEl) contentEl.innerHTML = paragraphs || "<p></p>";
+            const { slots, every, start } = getInContentAdConfig();
+            const parts = [];
+            let slotIndex = 0;
+
+            for (let i = 0; i < rawParagraphs.length; i += 1) {
+              parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
+
+              const paragraphNumber = i + 1;
+              const canInsert = slots.length > 0 && paragraphNumber >= start && i !== rawParagraphs.length - 1;
+              const shouldInsert = canInsert && (paragraphNumber - start + 1) % every === 0;
+              if (shouldInsert) {
+                const slot = slots[slotIndex % slots.length];
+                slotIndex += 1;
+                parts.push(renderInContentAd({ slot }));
+              }
+            }
+
+            if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
+            maybeInitAds();
           } catch (e) {
             if (errorEl) errorEl.hidden = false;
           }

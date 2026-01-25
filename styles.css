@@ -319,6 +319,21 @@ a {
   border-radius: 18px;
 }
 
+.article-content {
+  margin-top: 18px;
+  line-height: 1.75;
+}
+
+.article-content p {
+  margin: 0 0 14px;
+}
+
+.ad-incontent {
+  border-top: 0;
+  padding: 8px 0 18px;
+  margin: 10px 0 10px;
+}
+
 .article-body {
   padding: 14px 14px 16px;
   display: grid;

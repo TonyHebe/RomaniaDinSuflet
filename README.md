@@ -122,6 +122,12 @@ Ad placeholders live in:
     - `meta[name="adsense-infeed-slots"]` = one or more numeric slot IDs, comma-separated
     - `meta[name="adsense-infeed-every"]` = insert an ad after every N articles (example: `1` = after each article)
 
+- **In-article ads (inside the article text)**:
+  - Configure in `article.html`:
+    - `meta[name="adsense-article-incontent-slots"]` = one or more numeric slot IDs, comma-separated
+    - `meta[name="adsense-article-incontent-start"]` = start inserting after paragraph N
+    - `meta[name="adsense-article-incontent-every"]` = insert an ad after every N paragraphs (starting at `start`)
+
 - **Step 4 (`ads.txt`)**: update `ads.txt` to match your publisher id:
   - `google.com, pub-REPLACE_ME, DIRECT, f08c47fec0942fa0` → `google.com, pub-xxxxxxxxxxxxxxxx, DIRECT, f08c47fec0942fa0`
 
