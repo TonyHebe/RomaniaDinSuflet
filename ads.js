@@ -73,6 +73,9 @@
     pushAds(eligible);
   }
 
+  // Expose for pages that add ad units dynamically (e.g. after fetch/render).
+  window.__RDS_INIT_ADS = initAds;
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initAds, { once: true });
   } else {

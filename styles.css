@@ -231,6 +231,21 @@ a {
   gap: 18px;
 }
 
+.ad-card {
+  grid-column: 1 / -1;
+  padding: 14px 14px 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.ad-card .ad-label {
+  margin: 0;
+}
+
+.ad-card .ad-slot {
+  min-height: 120px;
+}
+
 .pagination {
   display: flex;
   flex-wrap: wrap;

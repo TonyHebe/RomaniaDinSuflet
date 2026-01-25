@@ -117,12 +117,18 @@ Ad placeholders live in:
 - `index.html` (`data-ad="home_top"`)
 - `article.html` (`data-ad="article_top"`)
 
+- **In-feed ads (homepage “Știri” list)**:
+  - Configure in `index.html`:
+    - `meta[name="adsense-infeed-slots"]` = one or more numeric slot IDs, comma-separated
+    - `meta[name="adsense-infeed-every"]` = insert an ad after every N articles (example: `1` = after each article)
+
 - **Step 4 (`ads.txt`)**: update `ads.txt` to match your publisher id:
   - `google.com, pub-REPLACE_ME, DIRECT, f08c47fec0942fa0` → `google.com, pub-xxxxxxxxxxxxxxxx, DIRECT, f08c47fec0942fa0`
 
 Implementation details:
 
 - `ads.js` loads the AdSense script only when it detects a real `ca-pub-...` and real numeric slot id(s).
+- The homepage feed is loaded dynamically; after render, `script.js` calls `window.__RDS_INIT_ADS()` to render newly inserted in-feed ads.
 - If AdSense is blocked (ad blockers, CSP, etc), it fails safely and the site remains usable.
 
 Later (when we implement automation pipeline):

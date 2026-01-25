@@ -2,6 +2,55 @@
   const yearEl = document.getElementById("year");
   if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 
+  function getMetaContent(name) {
+    const el = document.querySelector(`meta[name="${CSS.escape(name)}"]`);
+    return el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
+  }
+
+  function getInFeedAdConfig() {
+    const slotsRaw = getMetaContent("adsense-infeed-slots");
+    const everyRaw = getMetaContent("adsense-infeed-every");
+
+    const slots = slotsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .filter((s) => /^\d{6,}$/.test(s));
+
+    const every = Number.parseInt(String(everyRaw || "1"), 10);
+    const freq = Number.isFinite(every) && every > 0 ? every : 1;
+
+    return { slots, every: freq };
+  }
+
+  function renderInFeedAd({ slot }) {
+    // Container is hidden by default; ads.js will unhide when properly configured.
+    return `
+      <div class="article-card ad-card" data-ad="stiri_infeed" aria-label="Publicitate" hidden>
+        <div class="ad-label" aria-hidden="true">Publicitate</div>
+        <ins
+          class="adsbygoogle ad-slot"
+          style="display: block"
+          data-ad-client="ca-pub-REPLACE_ME"
+          data-ad-slot="${escapeAttr(String(slot))}"
+          data-ad-format="auto"
+          data-full-width-responsive="true"
+        ></ins>
+      </div>
+    `;
+  }
+
+  function maybeInitAds() {
+    const fn = window.__RDS_INIT_ADS;
+    if (typeof fn === "function") {
+      try {
+        fn();
+      } catch {
+        // Ignore (ad blockers, CSP, etc). Site should still function.
+      }
+    }
+  }
+
   const toggle = document.querySelector(".nav-toggle");
   const nav = document.getElementById("primary-nav");
   if (!(toggle instanceof HTMLElement) || !(nav instanceof HTMLElement)) return;
@@ -67,42 +116,56 @@
       }
 
       empty.hidden = true;
-      list.innerHTML = items
-        .map((a) => {
-          const rawTitle = String(a.title ?? "").trim();
-          const titleText =
-            rawTitle && !/^titlu$/i.test(rawTitle) ? rawTitle : String(a.excerpt ?? "").trim();
-          const title = escapeHtml(titleText || "Fără titlu");
-          const slug = encodeURIComponent(String(a.slug ?? ""));
-          const imageUrl = escapeAttr(String(a.imageUrl ?? ""));
-          const excerpt = escapeHtml(String(a.excerpt ?? ""));
-          const date = a.publishedAt
-            ? new Date(a.publishedAt).toLocaleDateString("ro-RO", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })
-            : "";
+      const { slots: inFeedSlots, every: inFeedEvery } = getInFeedAdConfig();
+      const parts = [];
+      let slotIndex = 0;
 
-          return `
-            <article class="article-card">
-              ${
-                imageUrl
-                  ? `<img class="article-thumb" src="${imageUrl}" alt="" loading="lazy" />`
-                  : `<div class="article-thumb" aria-hidden="true"></div>`
-              }
-              <div class="article-body">
-                <h3 class="article-title">${title}</h3>
-                <p class="article-excerpt">${excerpt}</p>
-                <div class="article-meta">
-                  <span>${escapeHtml(date)}</span>
-                  <a class="article-link" href="/article.html?slug=${slug}">Citește</a>
-                </div>
+      for (let i = 0; i < items.length; i += 1) {
+        const a = items[i];
+        const rawTitle = String(a.title ?? "").trim();
+        const titleText =
+          rawTitle && !/^titlu$/i.test(rawTitle) ? rawTitle : String(a.excerpt ?? "").trim();
+        const title = escapeHtml(titleText || "Fără titlu");
+        const slug = encodeURIComponent(String(a.slug ?? ""));
+        const imageUrl = escapeAttr(String(a.imageUrl ?? ""));
+        const excerpt = escapeHtml(String(a.excerpt ?? ""));
+        const date = a.publishedAt
+          ? new Date(a.publishedAt).toLocaleDateString("ro-RO", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : "";
+
+        parts.push(`
+          <article class="article-card">
+            ${
+              imageUrl
+                ? `<img class="article-thumb" src="${imageUrl}" alt="" loading="lazy" />`
+                : `<div class="article-thumb" aria-hidden="true"></div>`
+            }
+            <div class="article-body">
+              <h3 class="article-title">${title}</h3>
+              <p class="article-excerpt">${excerpt}</p>
+              <div class="article-meta">
+                <span>${escapeHtml(date)}</span>
+                <a class="article-link" href="/article.html?slug=${slug}">Citește</a>
               </div>
-            </article>
-          `;
-        })
-        .join("");
+            </div>
+          </article>
+        `);
+
+        const shouldInsertAd =
+          inFeedSlots.length > 0 && (i + 1) % inFeedEvery === 0 && i !== items.length - 1;
+        if (shouldInsertAd) {
+          const slot = inFeedSlots[slotIndex % inFeedSlots.length];
+          slotIndex += 1;
+          parts.push(renderInFeedAd({ slot }));
+        }
+      }
+
+      list.innerHTML = parts.join("");
+      maybeInitAds();
 
       renderStiriPagination({ el: pagination, page, totalPages });
     } catch (err) {
