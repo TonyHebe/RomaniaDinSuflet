@@ -210,6 +210,49 @@ a {
   gap: 18px;
 }
 
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 18px;
+}
+
+.page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid rgba(16, 17, 20, 0.12);
+  border-radius: 12px;
+  background: rgba(16, 17, 20, 0.02);
+  min-height: 36px;
+}
+
+.page-link:hover,
+.page-link:focus-visible {
+  background: rgba(16, 17, 20, 0.06);
+  outline: none;
+}
+
+.page-link.is-current {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.page-link[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.page-ellipsis {
+  color: var(--muted);
+  font-weight: 800;
+  padding: 6px 4px;
+}
+
 .article-card {
   border: 1px solid rgba(16, 17, 20, 0.1);
   border-radius: 18px;
