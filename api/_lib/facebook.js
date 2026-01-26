@@ -4,6 +4,23 @@ function mustGetEnv(name) {
   return v;
 }
 
+async function graphGet(path, params) {
+  const base = "https://graph.facebook.com/v19.0";
+  const url = new URL(`${base}/${path.replace(/^\//, "")}`);
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v === undefined || v === null) continue;
+    url.searchParams.set(k, String(v));
+  }
+  const res = await fetch(url, { method: "GET" });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.error) {
+    throw new Error(
+      `Facebook error: ${JSON.stringify(json?.error || json).slice(0, 400)}`,
+    );
+  }
+  return json;
+}
+
 async function graphPost(path, params) {
   const base = "https://graph.facebook.com/v19.0";
   const url = new URL(`${base}/${path.replace(/^\//, "")}`);
@@ -30,11 +47,32 @@ export async function postPhotoToFacebook({ imageUrl, caption } = {}) {
   const resp = await graphPost(`/${pageId}/photos`, {
     url: imageUrl,
     caption: caption || "",
+    // Make the intent explicit: publish a visible Page post (feed story).
+    // Some configurations can otherwise result in an unpublished upload or no-story upload.
+    published: true,
+    no_story: false,
     access_token: token,
   });
 
-  // Facebook returns either "post_id" or "id" depending on publish flow
-  return resp?.post_id || resp?.id || null;
+  // Typically returns: { id: <photo_id>, post_id: <page_post_id> }
+  // If post_id is missing, keep id as fallback (commenting on the photo still works),
+  // and try a best-effort lookup for page_story_id.
+  let postId = resp?.post_id || null;
+  const photoId = resp?.id || null;
+
+  if (!postId && photoId) {
+    try {
+      const lookedUp = await graphGet(`/${photoId}`, {
+        fields: "page_story_id",
+        access_token: token,
+      });
+      if (lookedUp?.page_story_id) postId = String(lookedUp.page_story_id);
+    } catch {
+      // ignore lookup failures; we'll return only the photo id
+    }
+  }
+
+  return { postId, photoId, raw: resp };
 }
 
 export async function postLinkToFacebook({ link, message } = {}) {
@@ -45,9 +83,10 @@ export async function postLinkToFacebook({ link, message } = {}) {
   const resp = await graphPost(`/${pageId}/feed`, {
     link: String(link),
     message: message ? String(message) : "",
+    published: true,
     access_token: token,
   });
-  return resp?.id || null;
+  return { postId: resp?.id || null, raw: resp };
 }
 
 export async function commentOnFacebookPost({ postId, message } = {}) {

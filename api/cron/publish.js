@@ -212,16 +212,34 @@ export default async function handler(req, res) {
 
       // Optional Facebook posting.
       let fbPostId = null;
+      let fbPhotoId = null;
+      let fbEnabled = false;
+      let fbMode = null;
+      let fbRaw = null;
       if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN) {
+        fbEnabled = true;
         const caption = `${finalTitle}\n\nVezi în comentarii.`;
         if (finalImageUrl) {
-          fbPostId = await postPhotoToFacebook({ imageUrl: finalImageUrl, caption });
+          fbMode = "photo";
+          const resp = await postPhotoToFacebook({
+            imageUrl: finalImageUrl,
+            caption,
+          });
+          fbPostId = resp?.postId || null;
+          fbPhotoId = resp?.photoId || null;
+          fbRaw = resp?.raw || null;
         } else {
-          fbPostId = await postLinkToFacebook({ link: articleUrl, message: caption });
+          fbMode = "link";
+          const resp = await postLinkToFacebook({ link: articleUrl, message: caption });
+          fbPostId = resp?.postId || null;
+          fbRaw = resp?.raw || null;
         }
-        if (fbPostId) {
+
+        // Comment the article URL on the object we have (prefer the postId; fall back to photoId).
+        const commentTargetId = fbPostId || fbPhotoId;
+        if (commentTargetId) {
           await sleep(2000);
-          await commentOnFacebookPost({ postId: fbPostId, message: articleUrl });
+          await commentOnFacebookPost({ postId: commentTargetId, message: articleUrl });
         }
       }
 
@@ -235,6 +253,15 @@ export default async function handler(req, res) {
           publishedSlug,
           articleUrl,
           fbPostId,
+          fbPhotoId,
+          facebook: {
+            enabled: fbEnabled,
+            mode: fbMode,
+            // Helpful to debug “posted but not visible” cases:
+            // - photoId with no postId can indicate an upload without a feed story.
+            ids: { postId: fbPostId, photoId: fbPhotoId },
+            raw: fbRaw,
+          },
         },
       });
     } catch (err) {
