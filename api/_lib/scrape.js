@@ -51,17 +51,64 @@ function extractBestContentHtml(html) {
   return body?.[1] || h;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetries(url, options, { retries = 3 } = {}) {
+  let lastRes = null;
+  let lastText = "";
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const res = await fetch(url, options);
+    lastRes = res;
+
+    if (res.ok) return res;
+
+    // Retry only on throttling / transient gateway errors.
+    const retryable = [429, 500, 502, 503, 504].includes(res.status);
+    if (!retryable || attempt >= retries) return res;
+
+    // Respect Retry-After if present (seconds).
+    const ra = Number.parseInt(res.headers?.get?.("retry-after") || "", 10);
+    const retryAfterMs = Number.isFinite(ra) ? ra * 1000 : null;
+
+    // Short capped backoff with jitter (serverless-friendly).
+    const base = 600 * 2 ** attempt;
+    const jitter = Math.floor(Math.random() * 250);
+    const delay = Math.min(2500, retryAfterMs ?? base + jitter);
+
+    // Drain body to avoid leaking resources on some runtimes.
+    try {
+      lastText = await res.text();
+    } catch {
+      lastText = "";
+    }
+
+    await sleep(delay);
+  }
+
+  // Should be unreachable, but return something sensible.
+  if (lastRes) return lastRes;
+  throw new Error(`Fetch failed for ${url.toString()}${lastText ? `: ${lastText.slice(0, 120)}` : ""}`);
+}
+
 export async function scrapeSourceUrl(sourceUrl, { userAgent } = {}) {
   const url = new URL(String(sourceUrl));
-  const res = await fetch(url, {
+  const res = await fetchWithRetries(
+    url,
+    {
     redirect: "follow",
     headers: {
       "user-agent":
         userAgent ||
         "Mozilla/5.0 (compatible; RomaniaDinSufletBot/1.0; +https://www.romaniadinsuflet.ro)",
-      accept: "text/html,application/xhtml+xml",
+        accept: "text/html,application/xhtml+xml",
+        "accept-language": "ro-RO,ro;q=0.9,en-US;q=0.7,en;q=0.5",
     },
-  });
+    },
+    { retries: 3 },
+  );
   if (!res.ok) {
     throw new Error(`Fetch failed (${res.status}) for ${url.toString()}`);
   }
