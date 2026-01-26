@@ -37,6 +37,19 @@ export async function postPhotoToFacebook({ imageUrl, caption } = {}) {
   return resp?.post_id || resp?.id || null;
 }
 
+export async function postLinkToFacebook({ link, message } = {}) {
+  const pageId = mustGetEnv("FB_PAGE_ID");
+  const token = mustGetEnv("FB_PAGE_TOKEN");
+  if (!link) throw new Error("Missing link");
+
+  const resp = await graphPost(`/${pageId}/feed`, {
+    link: String(link),
+    message: message ? String(message) : "",
+    access_token: token,
+  });
+  return resp?.id || null;
+}
+
 export async function commentOnFacebookPost({ postId, message } = {}) {
   const token = mustGetEnv("FB_PAGE_TOKEN");
   if (!postId) throw new Error("Missing postId");

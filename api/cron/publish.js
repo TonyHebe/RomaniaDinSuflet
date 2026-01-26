@@ -1,8 +1,13 @@
-import { getSecondsSinceLastPublish, insertArticle } from "../_lib/articles.js";
+import {
+  getArticleBySlug,
+  getSecondsSinceLastPublish,
+  insertArticle,
+} from "../_lib/articles.js";
 import {
   claimNextSource,
   markSourceFailed,
   markSourcePosted,
+  setSourcePublishedSlug,
 } from "../_lib/sourceQueue.js";
 import { scrapeSourceUrl } from "../_lib/scrape.js";
 import {
@@ -13,6 +18,7 @@ import {
 } from "../_lib/openai.js";
 import {
   commentOnFacebookPost,
+  postLinkToFacebook,
   postPhotoToFacebook,
   sleep,
 } from "../_lib/facebook.js";
@@ -83,63 +89,95 @@ export default async function handler(req, res) {
     }
 
     try {
-      const scraped = await scrapeSourceUrl(job.sourceUrl);
+      const siteUrlRaw =
+        process.env.SITE_URL ||
+        `https://${req.headers["x-forwarded-host"] || req.headers.host}`;
+      const siteUrl = String(siteUrlRaw).replace(/\/$/, "");
 
-      let finalTitle = scraped.title;
-      let finalContent = scraped.content;
-      const finalImageUrl = scraped.imageUrl || null;
+      let publishedSlug = job.publishedSlug || null;
+      let finalTitle = "";
+      let finalContent = "";
+      let finalImageUrl = null;
 
-      // Optional AI rewrite.
-      if (process.env.OPENAI_API_KEY) {
-        const rewritten1 = await rewriteWithAI({
-          title: scraped.title,
-          content: scraped.content,
-        });
-        let parsed = parseRewrite(rewritten1);
-        finalTitle = parsed.title;
-        finalContent = parsed.content;
-
-        // Hard guardrails: no placeholder titles and not identical to source title.
-        if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
-          try {
-            const rewritten2 = await rewriteWithAI({
-              title: scraped.title,
-              content: scraped.content,
-              previousBadTitle: finalTitle,
-            });
-            parsed = parseRewrite(rewritten2);
-            finalTitle = parsed.title;
-            finalContent = parsed.content;
-          } catch {
-            // ignore; we'll fall back below
-          }
-        }
-
-        if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
-          // Last-resort: generate a headline from rewritten content (still rephrased).
-          const derived = deriveTitleFromText(finalContent);
-          if (derived && !titlesLookSame(derived, scraped.title)) finalTitle = derived;
+      // Retry-safe behavior:
+      // If we already created the site article in a previous attempt, reuse it
+      // (prevents duplicates when Facebook posting temporarily fails).
+      if (publishedSlug) {
+        const existing = await getArticleBySlug(publishedSlug);
+        if (existing) {
+          finalTitle = existing.title;
+          finalContent = existing.content;
+          finalImageUrl = existing.imageUrl || null;
+        } else {
+          publishedSlug = null;
         }
       }
 
-      const publishedSlug = await insertArticle({
-        title: finalTitle,
-        content: finalContent,
-        imageUrl: finalImageUrl,
-        category: "stiri",
-      });
+      if (!publishedSlug) {
+        const scraped = await scrapeSourceUrl(job.sourceUrl);
 
-      const siteUrl =
-        process.env.SITE_URL || `https://${req.headers["x-forwarded-host"] || req.headers.host}`;
-      const articleUrl = `${String(siteUrl).replace(/\/$/, "")}/article.html?slug=${encodeURIComponent(
+        finalTitle = scraped.title;
+        finalContent = scraped.content;
+        finalImageUrl = scraped.imageUrl || null;
+
+        // Optional AI rewrite.
+        if (process.env.OPENAI_API_KEY) {
+          const rewritten1 = await rewriteWithAI({
+            title: scraped.title,
+            content: scraped.content,
+          });
+          let parsed = parseRewrite(rewritten1);
+          finalTitle = parsed.title;
+          finalContent = parsed.content;
+
+          // Hard guardrails: no placeholder titles and not identical to source title.
+          if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
+            try {
+              const rewritten2 = await rewriteWithAI({
+                title: scraped.title,
+                content: scraped.content,
+                previousBadTitle: finalTitle,
+              });
+              parsed = parseRewrite(rewritten2);
+              finalTitle = parsed.title;
+              finalContent = parsed.content;
+            } catch {
+              // ignore; we'll fall back below
+            }
+          }
+
+          if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
+            // Last-resort: generate a headline from rewritten content (still rephrased).
+            const derived = deriveTitleFromText(finalContent);
+            if (derived && !titlesLookSame(derived, scraped.title))
+              finalTitle = derived;
+          }
+        }
+
+        publishedSlug = await insertArticle({
+          title: finalTitle,
+          content: finalContent,
+          imageUrl: finalImageUrl,
+          category: "stiri",
+        });
+
+        // Persist the slug immediately so FB retries don't re-insert the article.
+        await setSourcePublishedSlug(job.id, publishedSlug);
+      }
+
+      const articleUrl = `${siteUrl}/article.html?slug=${encodeURIComponent(
         publishedSlug,
       )}`;
 
       // Optional Facebook posting.
       let fbPostId = null;
-      if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN && finalImageUrl) {
-        const caption = `${finalTitle}\n\nCitește: ${articleUrl}`;
-        fbPostId = await postPhotoToFacebook({ imageUrl: finalImageUrl, caption });
+      if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN) {
+        const caption = `${finalTitle}\n\nVezi în comentarii.`;
+        if (finalImageUrl) {
+          fbPostId = await postPhotoToFacebook({ imageUrl: finalImageUrl, caption });
+        } else {
+          fbPostId = await postLinkToFacebook({ link: articleUrl, message: caption });
+        }
         if (fbPostId) {
           await sleep(2000);
           await commentOnFacebookPost({ postId: fbPostId, message: articleUrl });
