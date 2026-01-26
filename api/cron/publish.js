@@ -8,6 +8,7 @@ import {
   markSourceFailed,
   markSourceBlocked,
   markSourcePosted,
+  markSourcePendingNoAttempt,
   setSourcePublishedSlug,
 } from "../_lib/sourceQueue.js";
 import { scrapeSourceUrl } from "../_lib/scrape.js";
@@ -20,10 +21,18 @@ import {
 } from "../_lib/openai.js";
 import {
   commentOnFacebookPost,
+  isFacebookTokenExpiredError,
   postLinkToFacebook,
   postPhotoToFacebook,
   sleep,
 } from "../_lib/facebook.js";
+
+class ConfigError extends Error {
+  constructor(message) {
+    super(String(message || "Configuration error"));
+    this.name = "ConfigError";
+  }
+}
 
 function deriveTitleFromText(text) {
   const t = String(text || "").trim();
@@ -218,28 +227,38 @@ export default async function handler(req, res) {
       let fbRaw = null;
       if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN) {
         fbEnabled = true;
-        const caption = `${finalTitle}\n\nVezi în comentarii.`;
-        if (finalImageUrl) {
-          fbMode = "photo";
-          const resp = await postPhotoToFacebook({
-            imageUrl: finalImageUrl,
-            caption,
-          });
-          fbPostId = resp?.postId || null;
-          fbPhotoId = resp?.photoId || null;
-          fbRaw = resp?.raw || null;
-        } else {
-          fbMode = "link";
-          const resp = await postLinkToFacebook({ link: articleUrl, message: caption });
-          fbPostId = resp?.postId || null;
-          fbRaw = resp?.raw || null;
-        }
+        try {
+          const caption = `${finalTitle}\n\nVezi în comentarii.`;
+          if (finalImageUrl) {
+            fbMode = "photo";
+            const resp = await postPhotoToFacebook({
+              imageUrl: finalImageUrl,
+              caption,
+            });
+            fbPostId = resp?.postId || null;
+            fbPhotoId = resp?.photoId || null;
+            fbRaw = resp?.raw || null;
+          } else {
+            fbMode = "link";
+            const resp = await postLinkToFacebook({ link: articleUrl, message: caption });
+            fbPostId = resp?.postId || null;
+            fbRaw = resp?.raw || null;
+          }
 
-        // Comment the article URL on the object we have (prefer the postId; fall back to photoId).
-        const commentTargetId = fbPostId || fbPhotoId;
-        if (commentTargetId) {
-          await sleep(2000);
-          await commentOnFacebookPost({ postId: commentTargetId, message: articleUrl });
+          // Comment the article URL on the object we have (prefer the postId; fall back to photoId).
+          const commentTargetId = fbPostId || fbPhotoId;
+          if (commentTargetId) {
+            await sleep(2000);
+            await commentOnFacebookPost({ postId: commentTargetId, message: articleUrl });
+          }
+        } catch (err) {
+          // Token expiry / auth issues are systemic (not per-article), so fail loudly and don't burn attempts.
+          if (isFacebookTokenExpiredError(err)) {
+            throw new ConfigError(
+              "Facebook access token expired. Renew/replace FB_PAGE_TOKEN (a long-lived Page token) in your deployment environment, then re-run Publish Cron.",
+            );
+          }
+          throw err;
         }
       }
 
@@ -265,10 +284,16 @@ export default async function handler(req, res) {
         },
       });
     } catch (err) {
-      const marked = await markSourceFailed(job.id, err);
-      // Don't fail the cron run for a single bad URL; mark it and move on.
-      res.status(200).json({
+      const isConfig = err?.name === "ConfigError";
+      const marked = isConfig
+        ? await markSourcePendingNoAttempt(job.id, err)
+        : await markSourceFailed(job.id, err);
+
+      // Config errors should fail the cron run (so Actions turns red) and not consume attempts.
+      // Per-item errors should be 200 so the runner can continue.
+      res.status(isConfig ? 500 : 200).json({
         ok: false,
+        hardFailure: isConfig,
         error: String(err?.message || err),
         job: { id: job.id, sourceUrl: job.sourceUrl },
         marked,
