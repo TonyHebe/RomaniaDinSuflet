@@ -6,10 +6,12 @@ import {
 import {
   claimNextSource,
   markSourceFailed,
+  markSourceBlocked,
   markSourcePosted,
   setSourcePublishedSlug,
 } from "../_lib/sourceQueue.js";
 import { scrapeSourceUrl } from "../_lib/scrape.js";
+import { isBlockedSourceUrl, isBlockedTitle } from "../_lib/blocklist.js";
 import {
   isBadTitle,
   parseRewrite,
@@ -94,6 +96,19 @@ export default async function handler(req, res) {
         `https://${req.headers["x-forwarded-host"] || req.headers.host}`;
       const siteUrl = String(siteUrlRaw).replace(/\/$/, "");
 
+      const blockedHost = isBlockedSourceUrl(job.sourceUrl);
+      if (blockedHost.blocked) {
+        const marked = await markSourceBlocked(job.id, blockedHost.reason);
+        res.status(200).json({
+          ok: true,
+          blocked: true,
+          reason: blockedHost.reason,
+          job: { id: job.id, sourceUrl: job.sourceUrl },
+          marked,
+        });
+        return;
+      }
+
       let publishedSlug = job.publishedSlug || null;
       let finalTitle = "";
       let finalContent = "";
@@ -115,6 +130,19 @@ export default async function handler(req, res) {
 
       if (!publishedSlug) {
         const scraped = await scrapeSourceUrl(job.sourceUrl);
+
+        const blockedScrapedTitle = isBlockedTitle(scraped.title);
+        if (blockedScrapedTitle.blocked) {
+          const marked = await markSourceBlocked(job.id, blockedScrapedTitle.reason);
+          res.status(200).json({
+            ok: true,
+            blocked: true,
+            reason: blockedScrapedTitle.reason,
+            job: { id: job.id, sourceUrl: job.sourceUrl },
+            marked,
+          });
+          return;
+        }
 
         finalTitle = scraped.title;
         finalContent = scraped.content;
@@ -152,6 +180,19 @@ export default async function handler(req, res) {
             if (derived && !titlesLookSame(derived, scraped.title))
               finalTitle = derived;
           }
+        }
+
+        const blockedFinalTitle = isBlockedTitle(finalTitle);
+        if (blockedFinalTitle.blocked) {
+          const marked = await markSourceBlocked(job.id, blockedFinalTitle.reason);
+          res.status(200).json({
+            ok: true,
+            blocked: true,
+            reason: blockedFinalTitle.reason,
+            job: { id: job.id, sourceUrl: job.sourceUrl },
+            marked,
+          });
+          return;
         }
 
         publishedSlug = await insertArticle({

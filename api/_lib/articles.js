@@ -174,3 +174,108 @@ export async function insertArticle({
   throw lastErr || new Error("Failed to generate unique slug");
 }
 
+function normalizeStringArray(values) {
+  return Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((v) => String(v || "").trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+export async function selectArticlesBySlugs(slugs) {
+  const pool = getPool();
+  const s = normalizeStringArray(slugs);
+  if (!s.length) return [];
+  const { rows } = await pool.query(
+    `
+      select slug, title, published_at as "publishedAt", category, status
+      from articles
+      where slug = any($1::text[])
+      order by published_at desc
+    `,
+    [s],
+  );
+  return rows;
+}
+
+export async function selectArticlesByTitles(titles) {
+  const pool = getPool();
+  const t = normalizeStringArray(titles);
+  if (!t.length) return [];
+  const { rows } = await pool.query(
+    `
+      select slug, title, published_at as "publishedAt", category, status
+      from articles
+      where title = any($1::text[])
+      order by published_at desc
+    `,
+    [t],
+  );
+  return rows;
+}
+
+export async function selectArticlesByTitleContains(substrings) {
+  const pool = getPool();
+  const parts = normalizeStringArray(substrings);
+  if (!parts.length) return [];
+  const patterns = parts.map((p) => `%${p}%`);
+  const { rows } = await pool.query(
+    `
+      select slug, title, published_at as "publishedAt", category, status
+      from articles
+      where title ilike any($1::text[])
+      order by published_at desc
+    `,
+    [patterns],
+  );
+  return rows;
+}
+
+export async function deleteArticlesBySlugs(slugs) {
+  const pool = getPool();
+  const s = normalizeStringArray(slugs);
+  if (!s.length) return [];
+  const { rows } = await pool.query(
+    `
+      delete from articles
+      where slug = any($1::text[])
+      returning slug, title
+    `,
+    [s],
+  );
+  return rows;
+}
+
+export async function deleteArticlesByTitles(titles) {
+  const pool = getPool();
+  const t = normalizeStringArray(titles);
+  if (!t.length) return [];
+  const { rows } = await pool.query(
+    `
+      delete from articles
+      where title = any($1::text[])
+      returning slug, title
+    `,
+    [t],
+  );
+  return rows;
+}
+
+export async function deleteArticlesByTitleContains(substrings) {
+  const pool = getPool();
+  const parts = normalizeStringArray(substrings);
+  if (!parts.length) return [];
+  const patterns = parts.map((p) => `%${p}%`);
+  const { rows } = await pool.query(
+    `
+      delete from articles
+      where title ilike any($1::text[])
+      returning slug, title
+    `,
+    [patterns],
+  );
+  return rows;
+}
+
