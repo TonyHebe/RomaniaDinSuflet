@@ -24,13 +24,63 @@ export class FacebookGraphError extends Error {
   }
 }
 
+function extractFacebookErrorObject(err) {
+  if (!err) return null;
+  if (typeof err === "object") {
+    if (err?.fb && typeof err.fb === "object") return err.fb;
+    if (err?.fbError && typeof err.fbError === "object") return err.fbError;
+    if (err?.raw?.error && typeof err.raw.error === "object") return err.raw.error;
+    if (err?.raw && typeof err.raw === "object") {
+      // FacebookGraphError stores the raw error object in `raw`.
+      if ("code" in err.raw || "error_subcode" in err.raw || "message" in err.raw) return err.raw;
+    }
+  }
+
+  const msg =
+    typeof err?.message === "string"
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : "";
+  if (!msg) return null;
+
+  // Some deployments stringify the FB error into the message, e.g.:
+  // "Facebook error: {\"message\":\"...\",\"code\":190,\"error_subcode\":463}"
+  const start = msg.indexOf("{");
+  const end = msg.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+
+  try {
+    const parsed = JSON.parse(msg.slice(start, end + 1));
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function isFacebookTokenExpiredError(err) {
   if (!err) return false;
-  const fb = err?.fb || err?.fbError || err?.raw?.error || null;
+  const fb = extractFacebookErrorObject(err);
   const code = fb?.code;
   const sub = fb?.errorSubcode ?? fb?.error_subcode;
   // 190 = OAuthException; 463/460 commonly indicate expired tokens.
   return Number(code) === 190 && (Number(sub) === 463 || Number(sub) === 460);
+}
+
+export function isFacebookPermissionConfigError(err) {
+  const fb = extractFacebookErrorObject(err);
+  const msg =
+    String(
+      fb?.message ||
+        (typeof err?.message === "string" ? err.message : typeof err === "string" ? err : ""),
+    )
+      .toLowerCase()
+      .trim();
+  // Commonly shows up as code 200 with "publish_actions ... deprecated" or missing page publishing perms.
+  const code = fb?.code ?? null;
+  if (Number(code) === 200 && /publish_actions|publish_pages|permission\(s\)/i.test(msg)) return true;
+  if (/publish_actions.*deprecated/i.test(msg)) return true;
+  return false;
 }
 
 async function graphGet(path, params) {

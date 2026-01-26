@@ -21,6 +21,7 @@ import {
 } from "../_lib/openai.js";
 import {
   commentOnFacebookPost,
+  isFacebookPermissionConfigError,
   isFacebookTokenExpiredError,
   postLinkToFacebook,
   postPhotoToFacebook,
@@ -32,6 +33,21 @@ class ConfigError extends Error {
     super(String(message || "Configuration error"));
     this.name = "ConfigError";
   }
+}
+
+function formatError(err) {
+  if (!err) return "Unknown error";
+  if (typeof err === "string") return err;
+  const msg = String(err?.message || err);
+  // Preserve useful FB metadata when present.
+  if (err?.name === "FacebookGraphError" && err?.fb) {
+    try {
+      return `${msg} ${JSON.stringify(err.fb)}`;
+    } catch {
+      return msg;
+    }
+  }
+  return msg;
 }
 
 function deriveTitleFromText(text) {
@@ -225,6 +241,8 @@ export default async function handler(req, res) {
       let fbEnabled = false;
       let fbMode = null;
       let fbRaw = null;
+      let fbOk = false;
+      let fbError = null;
       if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN) {
         fbEnabled = true;
         try {
@@ -251,18 +269,39 @@ export default async function handler(req, res) {
             await sleep(2000);
             await commentOnFacebookPost({ postId: commentTargetId, message: articleUrl });
           }
+          fbOk = true;
         } catch (err) {
-          // Token expiry / auth issues are systemic (not per-article), so fail loudly and don't burn attempts.
-          if (isFacebookTokenExpiredError(err)) {
-            throw new ConfigError(
-              "Facebook access token expired. Renew/replace FB_PAGE_TOKEN (a long-lived Page token) in your deployment environment, then re-run Publish Cron.",
-            );
+          fbError = formatError(err);
+
+          // If FB is required, treat systemic auth/permission issues as a hard failure.
+          const fbRequired =
+            String(process.env.FB_REQUIRED || "")
+              .trim()
+              .toLowerCase() === "true" ||
+            String(process.env.FB_REQUIRED || "").trim() === "1";
+          if (fbRequired) {
+            // Token expiry / auth issues are systemic (not per-article), so fail loudly and don't burn attempts.
+            if (isFacebookTokenExpiredError(err)) {
+              throw new ConfigError(
+                "Facebook access token expired. Renew/replace FB_PAGE_TOKEN (a long-lived Page token) in your deployment environment, then re-run Publish Cron.",
+              );
+            }
+            if (isFacebookPermissionConfigError(err)) {
+              throw new ConfigError(
+                "Facebook token/app is missing required publishing permissions for the Page. Generate a Page access token with `pages_manage_posts` + `pages_read_engagement` (and ensure the app has access), then re-run Publish Cron.",
+              );
+            }
+            throw err;
           }
-          throw err;
+          // Best-effort by default: don't block website publishing on FB issues.
         }
       }
 
-      await markSourcePosted(job.id, { publishedSlug, fbPostId });
+      await markSourcePosted(job.id, {
+        publishedSlug,
+        fbPostId,
+        lastError: fbEnabled && !fbOk && fbError ? `Facebook: ${fbError}` : null,
+      });
 
       res.status(200).json({
         ok: true,
@@ -275,32 +314,34 @@ export default async function handler(req, res) {
           fbPhotoId,
           facebook: {
             enabled: fbEnabled,
+            ok: fbEnabled ? fbOk : null,
             mode: fbMode,
             // Helpful to debug “posted but not visible” cases:
             // - photoId with no postId can indicate an upload without a feed story.
             ids: { postId: fbPostId, photoId: fbPhotoId },
             raw: fbRaw,
+            error: fbError,
           },
         },
       });
     } catch (err) {
       const isConfig = err?.name === "ConfigError";
       const marked = isConfig
-        ? await markSourcePendingNoAttempt(job.id, err)
-        : await markSourceFailed(job.id, err);
+        ? await markSourcePendingNoAttempt(job.id, formatError(err))
+        : await markSourceFailed(job.id, formatError(err));
 
       // Config errors should fail the cron run (so Actions turns red) and not consume attempts.
       // Per-item errors should be 200 so the runner can continue.
       res.status(isConfig ? 500 : 200).json({
         ok: false,
         hardFailure: isConfig,
-        error: String(err?.message || err),
+        error: formatError(err),
         job: { id: job.id, sourceUrl: job.sourceUrl },
         marked,
       });
     }
   } catch (err) {
-    res.status(500).json({ ok: false, error: String(err?.message || err) });
+    res.status(500).json({ ok: false, error: formatError(err) });
   }
 }
 

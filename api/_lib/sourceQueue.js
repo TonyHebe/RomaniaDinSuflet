@@ -170,7 +170,10 @@ export async function setSourcePublishedSlug(id, publishedSlug) {
   return rows[0] ?? null;
 }
 
-export async function markSourcePosted(id, { publishedSlug = null, fbPostId = null } = {}) {
+export async function markSourcePosted(
+  id,
+  { publishedSlug = null, fbPostId = null, lastError = null } = {},
+) {
   const pool = getPool();
   const { rows } = await pool.query(
     `
@@ -178,13 +181,18 @@ export async function markSourcePosted(id, { publishedSlug = null, fbPostId = nu
       set status = 'posted',
           processed_at = now(),
           updated_at = now(),
-          last_error = null,
+          last_error = $4,
           published_slug = $2,
           fb_post_id = $3
       where id = $1
-      returning id, status, published_slug as "publishedSlug", fb_post_id as "fbPostId"
+      returning
+        id,
+        status,
+        last_error as "lastError",
+        published_slug as "publishedSlug",
+        fb_post_id as "fbPostId"
     `,
-    [id, publishedSlug, fbPostId],
+    [id, publishedSlug, fbPostId, lastError ? String(lastError) : null],
   );
   return rows[0] ?? null;
 }
