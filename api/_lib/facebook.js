@@ -4,6 +4,35 @@ function mustGetEnv(name) {
   return v;
 }
 
+export class FacebookGraphError extends Error {
+  constructor(fbError, { status } = {}) {
+    const safe = fbError && typeof fbError === "object" ? fbError : {};
+    const msg =
+      safe?.message ||
+      (typeof fbError === "string" ? fbError : "Facebook Graph API error");
+    super(String(msg));
+    this.name = "FacebookGraphError";
+    this.status = status ?? null;
+    this.fb = {
+      message: safe?.message,
+      type: safe?.type,
+      code: safe?.code,
+      errorSubcode: safe?.error_subcode,
+      fbtraceId: safe?.fbtrace_id,
+    };
+    this.raw = fbError;
+  }
+}
+
+export function isFacebookTokenExpiredError(err) {
+  if (!err) return false;
+  const fb = err?.fb || err?.fbError || err?.raw?.error || null;
+  const code = fb?.code;
+  const sub = fb?.errorSubcode ?? fb?.error_subcode;
+  // 190 = OAuthException; 463/460 commonly indicate expired tokens.
+  return Number(code) === 190 && (Number(sub) === 463 || Number(sub) === 460);
+}
+
 async function graphGet(path, params) {
   const base = "https://graph.facebook.com/v19.0";
   const url = new URL(`${base}/${path.replace(/^\//, "")}`);
@@ -14,9 +43,8 @@ async function graphGet(path, params) {
   const res = await fetch(url, { method: "GET" });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.error) {
-    throw new Error(
-      `Facebook error: ${JSON.stringify(json?.error || json).slice(0, 400)}`,
-    );
+    if (json?.error) throw new FacebookGraphError(json.error, { status: res.status });
+    throw new FacebookGraphError(json, { status: res.status });
   }
   return json;
 }
@@ -31,9 +59,8 @@ async function graphPost(path, params) {
   const res = await fetch(url, { method: "POST" });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.error) {
-    throw new Error(
-      `Facebook error: ${JSON.stringify(json?.error || json).slice(0, 400)}`,
-    );
+    if (json?.error) throw new FacebookGraphError(json.error, { status: res.status });
+    throw new FacebookGraphError(json, { status: res.status });
   }
   return json;
 }

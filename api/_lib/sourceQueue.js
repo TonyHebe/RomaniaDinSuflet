@@ -218,6 +218,24 @@ export async function markSourceFailed(
   return rows[0] ?? null;
 }
 
+export async function markSourcePendingNoAttempt(id, err) {
+  const pool = getPool();
+  const message = normalizeError(err);
+  const { rows } = await pool.query(
+    `
+      update source_queue
+      set status = 'pending',
+          claimed_at = null,
+          last_error = $2,
+          updated_at = now()
+      where id = $1
+      returning id, status, attempt_count as "attemptCount", last_error as "lastError"
+    `,
+    [id, message],
+  );
+  return rows[0] ?? null;
+}
+
 export async function markSourceBlocked(
   id,
   reason,
