@@ -25,6 +25,7 @@ if (!Number.isFinite(max) || max <= 0) {
  
 let processed = 0;
 let failures = 0;
+let hardFailures = 0;
 let noPending = false;
  
 for (let i = 0; i < max; i++) {
@@ -65,16 +66,28 @@ for (let i = 0; i < max; i++) {
     }
 
     if (data?.processed?.publishedSlug) processed += 1;
-    if (!res.ok || data?.ok === false) failures += 1;
+
+    // "hard" failures = the cron endpoint itself is unhealthy (non-2xx)
+    if (!res.ok) {
+      failures += 1;
+      hardFailures += 1;
+    } else if (data?.ok === false) {
+      // "soft" failures = a single source item failed (already tracked + retried server-side)
+      failures += 1;
+    }
   } catch (err) {
     failures += 1;
+    hardFailures += 1;
     console.error(`call ${i + 1}/${max}: exception`);
     console.error(err);
   }
 }
  
-console.log(JSON.stringify({ processed, failures, noPending, max }, null, 2));
+console.log(
+  JSON.stringify({ processed, failures, hardFailures, noPending, max }, null, 2),
+);
  
-if (failures > 0) {
+// Only fail the workflow when the cron endpoint itself is unhealthy.
+if (hardFailures > 0) {
   process.exit(1);
 }
