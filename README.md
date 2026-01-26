@@ -94,6 +94,8 @@ Optional protection:
 - `DATABASE_URL` (required)
 - `CRON_SECRET` (optional, recommended)
 - `ADMIN_SECRET` (optional, recommended; protects `POST /api/sources`)
+- `BLOCKED_SOURCE_HOSTS` (optional; comma-separated hosts to skip permanently during publish, e.g. `rtv.ro,g4media.ro`)
+- `BLOCKED_TITLE_SUBSTRINGS` (optional; comma-separated substrings to skip permanently during publish, diacritics-insensitive)
 - `SITE_URL` (optional; e.g. `https://www.romaniadinsuflet.ro` for building canonical links)
 - `MIN_PUBLISH_INTERVAL_SECONDS` (optional; publish cooldown to prevent bursts when the scheduler loops)
 
@@ -190,6 +192,20 @@ curl "https://YOUR_DOMAIN/api/cron/publish?secret=$CRON_SECRET"
 
 If Vercel Cron is unavailable (Free plan), schedule step 4 from an external scheduler
 (GitHub Actions cron, cron-job.org, UptimeRobot, etc).
+
+## Deleting unwanted posts
+
+Two options (both require `DATABASE_URL`):
+
+- **Script (recommended)**: run a safe dry-run first, then delete.
+
+```bash
+node scripts/delete-posts.mjs --use-default-list --dry-run
+node scripts/delete-posts.mjs --use-default-list --yes
+```
+
+- **Admin API**: `POST /api/admin/delete` (protected by `ADMIN_SECRET`/`CRON_SECRET`).
+  - Body fields: `slugs`, `titles`, `titleContains`, `dryRun` (defaults to `true`)
 
 ## Fully automatic mode (discovery + publish)
 

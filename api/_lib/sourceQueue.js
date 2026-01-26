@@ -218,3 +218,27 @@ export async function markSourceFailed(
   return rows[0] ?? null;
 }
 
+export async function markSourceBlocked(
+  id,
+  reason,
+  { maxAttempts = DEFAULT_MAX_ATTEMPTS } = {},
+) {
+  const pool = getPool();
+  const message = normalizeError(reason || "Blocked by rules");
+  const max = Number.isFinite(Number(maxAttempts)) ? Number(maxAttempts) : DEFAULT_MAX_ATTEMPTS;
+  const { rows } = await pool.query(
+    `
+      update source_queue
+      set attempt_count = $3,
+          last_error = $2,
+          updated_at = now(),
+          processed_at = now(),
+          status = 'failed'
+      where id = $1
+      returning id, status, attempt_count as "attemptCount", last_error as "lastError"
+    `,
+    [id, message, max],
+  );
+  return rows[0] ?? null;
+}
+
