@@ -47,8 +47,19 @@ export async function rewriteWithAI({
 } = {}) {
   const apiKey = mustGetKey();
 
+  const sourceContent = String(content || "").trim().slice(0, 12000);
+  const sourceCharCount = sourceContent.length;
+  const minChars = Math.max(300, Math.floor(sourceCharCount * 0.9));
+  const maxChars = Math.max(minChars + 50, Math.ceil(sourceCharCount * 1.1));
+  // Rough heuristic: ~4 chars/token for Romanian prose.
+  const maxTokens = Math.min(4096, Math.max(900, Math.ceil(maxChars / 3)));
+
   const prompt = [
-    "Rescrie articolul în limba română, clar și concis, fără să copiezi fraze întregi.",
+    "Rescrie articolul în limba română, clar și complet, fără să copiezi fraze întregi.",
+    "IMPORTANT: Nu rezuma și nu scurta textul. Păstrează toate ideile și detaliile din sursă.",
+    `Țintește o lungime a conținutului (fără titlu) între ${minChars} și ${maxChars} caractere (aprox. aceeași lungime ca sursa).`,
+    "Nu adăuga informații noi și nu inventa detalii; doar restructurează și parafrazează.",
+    "Păstrează corect numele proprii, datele, cifrele și citatele (parafrazate) din sursă.",
     "Titlul trebuie să fie RESCRIS (parafrazat) și să NU fie identic cu titlul sursă.",
     "Nu folosi cuvântul „TITLU” ca text în răspuns.",
     "Returnează exact în acest format:",
@@ -62,7 +73,7 @@ export async function rewriteWithAI({
     previousBadTitle ? `Titlu respins (nu-l folosi): ${previousBadTitle}` : null,
     "",
     "Conținut sursă:",
-    String(content || "").slice(0, 12000),
+    sourceContent,
   ]
     .filter(Boolean)
     .join("\n");
@@ -76,6 +87,7 @@ export async function rewriteWithAI({
     body: JSON.stringify({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       temperature: 0.4,
+      max_tokens: maxTokens,
       messages: [
         { role: "system", content: "You are a helpful Romanian news editor." },
         { role: "user", content: prompt },
