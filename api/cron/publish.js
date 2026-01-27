@@ -29,6 +29,12 @@ import {
   sleep,
 } from "../_lib/facebook.js";
 
+// Vercel: allow enough time for scrape + (optional) OpenAI + (optional) Facebook.
+// Without this, a slow upstream can cause `FUNCTION_INVOCATION_FAILED`.
+export const config = {
+  maxDuration: 60,
+};
+
 class ConfigError extends Error {
   constructor(message) {
     super(String(message || "Configuration error"));

@@ -55,13 +55,40 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function fetchWithTimeout(url, options, { timeoutMs = 12_000 } = {}) {
+  const ms = Number(timeoutMs);
+  const timeout = Number.isFinite(ms) && ms > 0 ? ms : 12_000;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(new Error("Fetch timeout")), timeout);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function fetchWithRetries(url, options, { retries = 3 } = {}) {
   let lastRes = null;
   let lastText = "";
+  let lastErr = null;
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const res = await fetch(url, options);
-    lastRes = res;
+    let res;
+    try {
+      res = await fetchWithTimeout(url, options, {
+        timeoutMs: Number.parseInt(process.env.SCRAPE_FETCH_TIMEOUT_MS || "12000", 10),
+      });
+      lastRes = res;
+      lastErr = null;
+    } catch (err) {
+      lastErr = err;
+      // Retry on transient network/timeout errors.
+      if (attempt >= retries) break;
+      const base = 600 * 2 ** attempt;
+      const jitter = Math.floor(Math.random() * 250);
+      await sleep(Math.min(2500, base + jitter));
+      continue;
+    }
 
     if (res.ok) return res;
 
@@ -90,7 +117,10 @@ async function fetchWithRetries(url, options, { retries = 3 } = {}) {
 
   // Should be unreachable, but return something sensible.
   if (lastRes) return lastRes;
-  throw new Error(`Fetch failed for ${url.toString()}${lastText ? `: ${lastText.slice(0, 120)}` : ""}`);
+  const e = lastErr ? `: ${String(lastErr?.message || lastErr)}` : "";
+  throw new Error(
+    `Fetch failed for ${url.toString()}${e}${lastText ? `: ${lastText.slice(0, 120)}` : ""}`,
+  );
 }
 
 export async function scrapeSourceUrl(sourceUrl, { userAgent } = {}) {
