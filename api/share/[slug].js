@@ -16,6 +16,26 @@ function buildSiteUrl(req) {
   return String(siteUrlRaw).replace(/\/$/, "");
 }
 
+function normalizeOgImageUrl(raw, siteUrl) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^data:/i.test(s)) return "";
+  try {
+    return new URL(s, siteUrl).toString();
+  } catch {
+    return "";
+  }
+}
+
+function isSocialCrawler(req) {
+  const ua = String(req?.headers?.["user-agent"] || "").toLowerCase();
+  if (!ua) return false;
+  // Known social preview crawlers (non-exhaustive).
+  return /facebookexternalhit|facebot|twitterbot|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|pinterest|embedly|quora link preview|outbrain|vkshare/i.test(
+    ua,
+  );
+}
+
 export const config = {
   maxDuration: 10,
 };
@@ -61,11 +81,20 @@ export default async function handler(req, res) {
     const description = String(article.excerpt || toExcerpt(article.content, 180) || "")
       .replace(/\s+/g, " ")
       .trim();
-    const imageUrl = article.imageUrl ? String(article.imageUrl).trim() : "";
+    const imageUrl = normalizeOgImageUrl(article.imageUrl, siteUrl);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     // Cache for crawlers + edge; articles rarely change after publish.
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
+
+    // For humans: do a real HTTP redirect to the SPA article page.
+    // For social crawlers: serve a static HTML page with OG tags (no JS/meta refresh redirects),
+    // otherwise platforms may follow the redirect and miss the metadata.
+    if (!isSocialCrawler(req)) {
+      res.setHeader("Location", articleUrl);
+      res.status(302).end();
+      return;
+    }
 
     res.status(200).send(`<!doctype html>
 <html lang="ro">
@@ -82,25 +111,16 @@ export default async function handler(req, res) {
     <meta property="og:description" content="${escapeHtml(description)}" />
     <meta property="og:url" content="${escapeHtml(shareUrl)}" />
     ${imageUrl ? `<meta property="og:image" content="${escapeHtml(imageUrl)}" />` : ""}
+    ${imageUrl ? `<meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}" />` : ""}
     ${imageUrl ? `<meta property="og:image:alt" content="${escapeHtml(title)}" />` : ""}
 
     <meta name="twitter:card" content="${imageUrl ? "summary_large_image" : "summary"}" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     ${imageUrl ? `<meta name="twitter:image" content="${escapeHtml(imageUrl)}" />` : ""}
-
-    <meta http-equiv="refresh" content="0;url=${escapeHtml(articleUrl)}" />
   </head>
   <body>
-    <noscript>
-      <p>
-        <a href="${escapeHtml(articleUrl)}">Deschide articolul</a>
-      </p>
-    </noscript>
-    <script>
-      // Redirect humans quickly; crawlers will still read OG tags.
-      location.replace(${JSON.stringify(articleUrl)});
-    </script>
+    <p><a href="${escapeHtml(articleUrl)}">Deschide articolul</a></p>
   </body>
 </html>`);
   } catch (err) {
