@@ -180,8 +180,23 @@
             const res = await fetch(`/api/articles/${encodeURIComponent(slug)}`, {
               headers: { Accept: "application/json" },
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const a = await res.json();
+            const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+            let a = null;
+            if (contentType.includes("application/json")) {
+              a = await res.json().catch(() => null);
+            } else {
+              const text = await res.text().catch(() => "");
+              throw new Error(
+                `Non-JSON response from /api/articles/:slug (status=${res.status}, content-type=${contentType}): ${text.slice(
+                  0,
+                  200,
+                )}`,
+              );
+            }
+            if (!res.ok) {
+              const apiErr = typeof a?.error === "string" ? a.error : "";
+              throw new Error(`HTTP ${res.status}${apiErr ? `: ${apiErr}` : ""}`);
+            }
 
             if (titleEl) titleEl.textContent = a?.title || "Articol";
             if (metaEl) {
@@ -226,6 +241,8 @@
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
             maybeInitAds();
           } catch (e) {
+            console.error("Failed to load article.", e);
+            if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
             if (errorEl) errorEl.hidden = false;
           }
         }

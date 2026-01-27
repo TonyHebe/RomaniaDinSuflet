@@ -33,6 +33,8 @@ async function getDeps() {
     titlesLookSame: openai.titlesLookSame,
     // facebook
     commentOnFacebookPost: facebook.commentOnFacebookPost,
+    getFacebookPostInfo: facebook.getFacebookPostInfo,
+    tryMakeFacebookPostPublic: facebook.tryMakeFacebookPostPublic,
     isFacebookPermissionConfigError: facebook.isFacebookPermissionConfigError,
     isFacebookTokenExpiredError: facebook.isFacebookTokenExpiredError,
     postLinkToFacebook: facebook.postLinkToFacebook,
@@ -152,6 +154,8 @@ export default async function handler(req, res) {
       titlesLookSame,
       isFacebookPermissionConfigError,
       isFacebookTokenExpiredError,
+      getFacebookPostInfo,
+      tryMakeFacebookPostPublic,
       postLinkToFacebook,
       sleep,
     } = await getDeps();
@@ -330,6 +334,8 @@ export default async function handler(req, res) {
       let fbEnabled = false;
       let fbMode = null;
       let fbRaw = null;
+      let fbPostInfo = null;
+      let fbVisibilityFix = null;
       let fbOk = false;
       let fbError = null;
       let fbCommentId = null;
@@ -343,6 +349,25 @@ export default async function handler(req, res) {
           const resp = await postLinkToFacebook({ link: shareUrl, message: finalTitle });
           fbPostId = resp?.postId || null;
           fbRaw = resp?.raw || null;
+
+          // Fetch post info to debug “only admins can see it” cases.
+          if (fbPostId) {
+            try {
+              fbPostInfo = await getFacebookPostInfo(fbPostId);
+            } catch {
+              fbPostInfo = null;
+            }
+          }
+
+          // If FB created something that isn't actually public, try to flip it.
+          if (fbPostId && fbPostInfo && (fbPostInfo.is_published === false || fbPostInfo.is_hidden === true)) {
+            try {
+              fbVisibilityFix = await tryMakeFacebookPostPublic(fbPostId);
+              fbPostInfo = await getFacebookPostInfo(fbPostId);
+            } catch {
+              // ignore; we'll still return the debug fields we have
+            }
+          }
 
           // Optional: also add the link as the first comment (kept off by default).
           const shouldComment =
@@ -409,6 +434,8 @@ export default async function handler(req, res) {
             // Helpful to debug “posted but not visible” cases:
             // - photoId with no postId can indicate an upload without a feed story.
             ids: { postId: fbPostId, photoId: fbPhotoId },
+            post: fbPostInfo,
+            visibilityFix: fbVisibilityFix,
             comment: { id: fbCommentId, targetId: fbCommentTargetId },
             raw: fbRaw,
             error: fbError,
