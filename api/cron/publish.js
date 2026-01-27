@@ -325,6 +325,8 @@ export default async function handler(req, res) {
       const articleUrl = `${siteUrl}/article.html?slug=${encodeURIComponent(
         publishedSlug,
       )}`;
+      // A crawler-friendly share URL with server-rendered OG tags (Facebook/Twitter previews).
+      const shareUrl = `${siteUrl}/s/${encodeURIComponent(publishedSlug)}`;
 
       // Optional Facebook posting.
       let fbPostId = null;
@@ -351,7 +353,8 @@ export default async function handler(req, res) {
             fbRaw = resp?.raw || null;
           } else {
             fbMode = "link";
-            const resp = await postLinkToFacebook({ link: articleUrl, message: caption });
+            // Post the share URL so the preview uses the article's OG image/title.
+            const resp = await postLinkToFacebook({ link: shareUrl, message: caption });
             fbPostId = resp?.postId || null;
             fbRaw = resp?.raw || null;
           }
@@ -372,7 +375,8 @@ export default async function handler(req, res) {
             await sleep(1500);
             fbCommentId = await commentWithRetry({
               targetId: fbCommentTargetId,
-              message: articleUrl,
+              // Comment the share URL so the comment shows a rich preview (image + title).
+              message: shareUrl,
               maxAttempts: 6,
             });
           }
@@ -417,6 +421,7 @@ export default async function handler(req, res) {
           sourceUrl: job.sourceUrl,
           publishedSlug,
           articleUrl,
+          shareUrl,
           fbPostId,
           fbPhotoId,
           facebook: {
