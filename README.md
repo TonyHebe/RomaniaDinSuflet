@@ -97,7 +97,7 @@ Optional protection:
 - `BLOCKED_SOURCE_HOSTS` (optional; comma-separated hosts to skip permanently during publish, e.g. `rtv.ro,g4media.ro`)
 - `BLOCKED_TITLE_SUBSTRINGS` (optional; comma-separated substrings to skip permanently during publish, diacritics-insensitive)
 - `SITE_URL` (optional; e.g. `https://www.romaniadinsuflet.ro` for building canonical links)
-- `MIN_PUBLISH_INTERVAL_SECONDS` (optional; publish cooldown to prevent bursts when the scheduler loops)
+- `MIN_PUBLISH_INTERVAL_SECONDS` (optional; publish cooldown to prevent bursts when the scheduler loops; default: 600)
 
 ## Google AdSense (ads)
 
@@ -224,7 +224,7 @@ it will publish multiple queued items back-to-back. To prevent bursts, set:
 
 Also note: the GitHub cron runner (`scripts/publish-cron.mjs`) retries on timeouts/transient errors. If the API
 actually finished publishing but the HTTP response was lost (timeout), a retry can claim the next queue item and
-publish again. The recommended fix is to keep a non-zero `MIN_PUBLISH_INTERVAL_SECONDS` (default is 3600).
+publish again. The recommended fix is to keep a non-zero `MIN_PUBLISH_INTERVAL_SECONDS` (default is 600).
 
 To enable discovery, add these GitHub repo secrets:
 
