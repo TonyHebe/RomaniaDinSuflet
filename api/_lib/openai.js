@@ -6,6 +6,20 @@ function mustGetKey() {
   return key;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status) {
+  return [408, 425, 429, 500, 502, 503, 504].includes(Number(status));
+}
+
+function isTimeoutError(err) {
+  const name = String(err?.name || "");
+  const msg = String(err?.message || err || "");
+  return name === "AbortError" || /timeout/i.test(msg);
+}
+
 function normalizeForCompare(s) {
   return String(s || "")
     .normalize("NFD")
@@ -78,41 +92,66 @@ export async function rewriteWithAI({
     .filter(Boolean)
     .join("\n");
 
-  const timeoutMs = Number.parseInt(process.env.OPENAI_TIMEOUT_MS || "30000", 10);
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(new Error("OpenAI timeout")), timeoutMs);
-  let res;
-  try {
-    res = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        temperature: 0.4,
-        max_tokens: maxTokens,
-        messages: [
-          { role: "system", content: "You are a helpful Romanian news editor." },
-          { role: "user", content: prompt },
-        ],
-      }),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(t);
+  // Keep this below the serverless maxDuration and leave room for scraping/DB.
+  const timeoutMs = Number.parseInt(process.env.OPENAI_TIMEOUT_MS || "45000", 10);
+  const retries = Number.parseInt(process.env.OPENAI_RETRIES || "2", 10);
+  const maxAttempts = Math.max(1, (Number.isFinite(retries) ? retries : 2) + 1);
+
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const t = setTimeout(
+      () => controller.abort(new Error(`OpenAI timeout after ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+    try {
+      const res = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          temperature: 0.4,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: "You are a helpful Romanian news editor." },
+            { role: "user", content: prompt },
+          ],
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        const err = new Error(`OpenAI error (${res.status}): ${text.slice(0, 400)}`);
+        err.status = res.status;
+        lastErr = err;
+
+        if (!isRetryableStatus(res.status) || attempt >= maxAttempts) throw err;
+      } else {
+        const data = await res.json();
+        const out = data?.choices?.[0]?.message?.content;
+        if (!out) throw new Error("OpenAI returned empty response");
+        return String(out).trim();
+      }
+    } catch (err) {
+      lastErr = err;
+      const status = Number(err?.status ?? NaN);
+      const retryable = isTimeoutError(err) || isRetryableStatus(status);
+      if (!retryable || attempt >= maxAttempts) throw err;
+    } finally {
+      clearTimeout(t);
+    }
+
+    // Exponential backoff w/ jitter (serverless-friendly, capped).
+    const base = 800 * 2 ** (attempt - 1);
+    const jitter = Math.floor(Math.random() * 250);
+    await sleep(Math.min(5000, base + jitter));
   }
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`OpenAI error (${res.status}): ${text.slice(0, 400)}`);
-  }
-
-  const data = await res.json();
-  const out = data?.choices?.[0]?.message?.content;
-  if (!out) throw new Error("OpenAI returned empty response");
-  return String(out).trim();
+  throw lastErr || new Error("OpenAI error");
 }
 
 export function parseRewrite(text) {
