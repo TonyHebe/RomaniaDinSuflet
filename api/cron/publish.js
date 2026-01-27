@@ -264,37 +264,65 @@ export default async function handler(req, res) {
         finalContent = scraped.content;
         finalImageUrl = scraped.imageUrl || null;
 
-        // Optional AI rewrite.
-        if (process.env.OPENAI_API_KEY) {
-          const rewritten1 = await rewriteWithAI({
-            title: scraped.title,
-            content: scraped.content,
-          });
-          let parsed = parseRewrite(rewritten1);
-          finalTitle = parsed.title;
-          finalContent = parsed.content;
+        const ai = {
+          enabled: Boolean(process.env.OPENAI_API_KEY),
+          required:
+            String(process.env.OPENAI_REQUIRED || "")
+              .trim()
+              .toLowerCase() === "true" || String(process.env.OPENAI_REQUIRED || "").trim() === "1",
+          ok: null,
+          used: false,
+          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          error: null,
+        };
 
-          // Hard guardrails: no placeholder titles and not identical to source title.
-          if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
-            try {
-              const rewritten2 = await rewriteWithAI({
-                title: scraped.title,
-                content: scraped.content,
-                previousBadTitle: finalTitle,
-              });
-              parsed = parseRewrite(rewritten2);
-              finalTitle = parsed.title;
-              finalContent = parsed.content;
-            } catch {
-              // ignore; we'll fall back below
+        // Optional AI rewrite (best-effort unless OPENAI_REQUIRED=true).
+        if (ai.enabled) {
+          try {
+            const rewritten1 = await rewriteWithAI({
+              title: scraped.title,
+              content: scraped.content,
+            });
+            let parsed = parseRewrite(rewritten1);
+            finalTitle = parsed.title;
+            finalContent = parsed.content;
+            ai.used = true;
+
+            // Hard guardrails: no placeholder titles and not identical to source title.
+            if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
+              try {
+                const rewritten2 = await rewriteWithAI({
+                  title: scraped.title,
+                  content: scraped.content,
+                  previousBadTitle: finalTitle,
+                });
+                parsed = parseRewrite(rewritten2);
+                finalTitle = parsed.title;
+                finalContent = parsed.content;
+              } catch {
+                // ignore; we'll fall back below
+              }
             }
-          }
 
-          if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
-            // Last-resort: generate a headline from rewritten content (still rephrased).
-            const derived = deriveTitleFromText(finalContent);
-            if (derived && !titlesLookSame(derived, scraped.title))
-              finalTitle = derived;
+            if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
+              // Last-resort: generate a headline from rewritten content (still rephrased).
+              const derived = deriveTitleFromText(finalContent);
+              if (derived && !titlesLookSame(derived, scraped.title)) finalTitle = derived;
+            }
+
+            // If we still failed guardrails, treat it as an AI failure (so we can fall back).
+            if (isBadTitle(finalTitle) || titlesLookSame(finalTitle, scraped.title)) {
+              throw new Error("OpenAI rewrite produced an invalid or unchanged title");
+            }
+
+            ai.ok = true;
+          } catch (err) {
+            ai.ok = false;
+            ai.error = formatError(err);
+            // Reset to scraped content if AI failed.
+            finalTitle = scraped.title;
+            finalContent = scraped.content;
+            if (ai.required) throw err;
           }
         }
 
@@ -320,6 +348,11 @@ export default async function handler(req, res) {
 
         // Persist the slug immediately so FB retries don't re-insert the article.
         await setSourcePublishedSlug(job.id, publishedSlug);
+
+        // Expose AI debug info (if any) to the caller.
+        // This is safe because it contains no secrets, only status/error text.
+        // eslint-disable-next-line no-param-reassign
+        job._ai = ai;
       }
 
       const articleUrl = `${siteUrl}/article.html?slug=${encodeURIComponent(
@@ -425,6 +458,7 @@ export default async function handler(req, res) {
           publishedSlug,
           articleUrl,
           shareUrl,
+          ai: job._ai || { enabled: Boolean(process.env.OPENAI_API_KEY) },
           fbPostId,
           fbPhotoId,
           facebook: {
