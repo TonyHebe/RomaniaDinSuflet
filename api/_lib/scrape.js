@@ -25,13 +25,33 @@ function stripTags(html) {
   );
 }
 
+function parseTagAttributes(tagHtml) {
+  const attrs = Object.create(null);
+  const re = /([a-zA-Z][a-zA-Z0-9:_-]*)\s*=\s*(["'])([\s\S]*?)\2/g;
+  let m;
+  while ((m = re.exec(tagHtml))) {
+    const key = String(m[1] || "").toLowerCase();
+    if (!key) continue;
+    attrs[key] = decodeEntities(m[3] || "").trim();
+  }
+  return attrs;
+}
+
 function getMeta(html, propOrName) {
-  const re = new RegExp(
-    `<meta\\s+(?:property|name)=["']${propOrName}["']\\s+content=["']([^"']+)["'][^>]*>`,
-    "i",
-  );
-  const m = String(html || "").match(re);
-  return m?.[1] ? decodeEntities(m[1]).trim() : null;
+  const wanted = String(propOrName || "").toLowerCase().trim();
+  if (!wanted) return null;
+  const h = String(html || "");
+  const metaTagRe = /<meta\b[^>]*>/gi;
+  let m;
+  while ((m = metaTagRe.exec(h))) {
+    const tag = m[0] || "";
+    const attrs = parseTagAttributes(tag);
+    const key = String(attrs.property || attrs.name || "").toLowerCase();
+    if (!key || key !== wanted) continue;
+    const content = String(attrs.content || "").trim();
+    if (content) return content;
+  }
+  return null;
 }
 
 function getTitle(html) {
@@ -123,6 +143,17 @@ async function fetchWithRetries(url, options, { retries = 3 } = {}) {
   );
 }
 
+function normalizeAbsoluteUrl(raw, baseUrl) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  if (/^data:/i.test(s)) return null;
+  try {
+    return new URL(s, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function scrapeSourceUrl(sourceUrl, { userAgent } = {}) {
   const url = new URL(String(sourceUrl));
   const res = await fetchWithRetries(
@@ -145,7 +176,13 @@ export async function scrapeSourceUrl(sourceUrl, { userAgent } = {}) {
 
   const html = await res.text();
   const title = getTitle(html);
-  const imageUrl = getMeta(html, "og:image") || getMeta(html, "twitter:image");
+  const rawImage =
+    getMeta(html, "og:image") ||
+    getMeta(html, "og:image:url") ||
+    getMeta(html, "og:image:secure_url") ||
+    getMeta(html, "twitter:image") ||
+    getMeta(html, "twitter:image:src");
+  const imageUrl = normalizeAbsoluteUrl(rawImage, url);
 
   const best = extractBestContentHtml(html);
   const text = stripTags(best);
