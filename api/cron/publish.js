@@ -175,13 +175,13 @@ export default async function handler(req, res) {
     }
 
     // Optional publish cooldown (prevents batching even if the runner loops).
-    // Example: MIN_PUBLISH_INTERVAL_SECONDS=3600 allows max 1 publish/hour.
-    // IMPORTANT: default to 1/hour to prevent duplicate publishes when the caller retries
+    // Example: MIN_PUBLISH_INTERVAL_SECONDS=600 allows max 1 publish/10min.
+    // IMPORTANT: default to 10min to prevent duplicate publishes when the caller retries
     // (e.g. network timeout after the function already finished publishing).
     const minIntervalEnv = process.env.MIN_PUBLISH_INTERVAL_SECONDS;
     const minIntervalSeconds =
       minIntervalEnv === undefined || String(minIntervalEnv).trim() === ""
-        ? 3600
+        ? 600
         : Number.parseInt(String(minIntervalEnv), 10);
     if (Number.isFinite(minIntervalSeconds) && minIntervalSeconds > 0) {
       const secondsSince = await getSecondsSinceLastPublish({ category: "stiri" });
