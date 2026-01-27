@@ -1,33 +1,48 @@
-import {
-  getArticleBySlug,
-  getSecondsSinceLastPublish,
-  insertArticle,
-} from "../_lib/articles.js";
-import {
-  claimNextSource,
-  markSourceFailed,
-  markSourceBlocked,
-  markSourcePosted,
-  markSourcePendingNoAttempt,
-  setSourcePublishedSlug,
-} from "../_lib/sourceQueue.js";
-import { scrapeSourceUrl } from "../_lib/scrape.js";
-import { isBlockedSourceUrl, isBlockedTitle } from "../_lib/blocklist.js";
-import {
-  isBadTitle,
-  parseRewrite,
-  rewriteWithAI,
-  titlesLookSame,
-} from "../_lib/openai.js";
-import {
-  commentOnFacebookPost,
-  getFacebookPhotoPageStoryId,
-  isFacebookPermissionConfigError,
-  isFacebookTokenExpiredError,
-  postLinkToFacebook,
-  postPhotoToFacebook,
-  sleep,
-} from "../_lib/facebook.js";
+let _deps = null;
+async function getDeps() {
+  if (_deps) return _deps;
+  const [articles, sourceQueue, scrape, blocklist, openai, facebook] = await Promise.all([
+    import("../_lib/articles.js"),
+    import("../_lib/sourceQueue.js"),
+    import("../_lib/scrape.js"),
+    import("../_lib/blocklist.js"),
+    import("../_lib/openai.js"),
+    import("../_lib/facebook.js"),
+  ]);
+
+  _deps = {
+    // articles
+    getArticleBySlug: articles.getArticleBySlug,
+    getSecondsSinceLastPublish: articles.getSecondsSinceLastPublish,
+    insertArticle: articles.insertArticle,
+    // queue
+    claimNextSource: sourceQueue.claimNextSource,
+    markSourceFailed: sourceQueue.markSourceFailed,
+    markSourceBlocked: sourceQueue.markSourceBlocked,
+    markSourcePosted: sourceQueue.markSourcePosted,
+    markSourcePendingNoAttempt: sourceQueue.markSourcePendingNoAttempt,
+    setSourcePublishedSlug: sourceQueue.setSourcePublishedSlug,
+    // scrape + blocklist
+    scrapeSourceUrl: scrape.scrapeSourceUrl,
+    isBlockedSourceUrl: blocklist.isBlockedSourceUrl,
+    isBlockedTitle: blocklist.isBlockedTitle,
+    // openai
+    isBadTitle: openai.isBadTitle,
+    parseRewrite: openai.parseRewrite,
+    rewriteWithAI: openai.rewriteWithAI,
+    titlesLookSame: openai.titlesLookSame,
+    // facebook
+    commentOnFacebookPost: facebook.commentOnFacebookPost,
+    getFacebookPhotoPageStoryId: facebook.getFacebookPhotoPageStoryId,
+    isFacebookPermissionConfigError: facebook.isFacebookPermissionConfigError,
+    isFacebookTokenExpiredError: facebook.isFacebookTokenExpiredError,
+    postLinkToFacebook: facebook.postLinkToFacebook,
+    postPhotoToFacebook: facebook.postPhotoToFacebook,
+    sleep: facebook.sleep,
+  };
+
+  return _deps;
+}
 
 // Vercel: allow enough time for scrape + (optional) OpenAI + (optional) Facebook.
 // Without this, a slow upstream can cause `FUNCTION_INVOCATION_FAILED`.
@@ -97,6 +112,8 @@ function shouldRetryFacebookCommentError(err) {
 }
 
 async function commentWithRetry({ targetId, message, maxAttempts = 6 } = {}) {
+  const { commentOnFacebookPost, sleep, isFacebookTokenExpiredError, isFacebookPermissionConfigError } =
+    await getDeps();
   const attempts = Math.max(1, Number(maxAttempts) || 1);
   let lastErr = null;
   for (let i = 0; i < attempts; i += 1) {
@@ -118,6 +135,31 @@ async function commentWithRetry({ targetId, message, maxAttempts = 6 } = {}) {
 
 export default async function handler(req, res) {
   try {
+    const {
+      getArticleBySlug,
+      getSecondsSinceLastPublish,
+      insertArticle,
+      claimNextSource,
+      markSourceFailed,
+      markSourceBlocked,
+      markSourcePosted,
+      markSourcePendingNoAttempt,
+      setSourcePublishedSlug,
+      scrapeSourceUrl,
+      isBlockedSourceUrl,
+      isBlockedTitle,
+      isBadTitle,
+      parseRewrite,
+      rewriteWithAI,
+      titlesLookSame,
+      getFacebookPhotoPageStoryId,
+      isFacebookPermissionConfigError,
+      isFacebookTokenExpiredError,
+      postLinkToFacebook,
+      postPhotoToFacebook,
+      sleep,
+    } = await getDeps();
+
     // Process ONE pending source URL per call (safe + retryable).
     // Keeping this endpoint safe by requiring a secret.
     const secret = process.env.CRON_SECRET;
