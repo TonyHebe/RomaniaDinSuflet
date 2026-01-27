@@ -4,6 +4,13 @@
     return el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
   }
 
+  function getClientId() {
+    // Prefer the official meta name if present.
+    const official = getMetaContent("google-adsense-account");
+    if (official) return official;
+    return getMetaContent("adsense-client");
+  }
+
   function isRealClientId(client) {
     // Expected format: ca-pub-1234567890123456
     return /^ca-pub-\d{10,}$/.test(client);
@@ -50,9 +57,30 @@
     }
   }
 
+  function initAutoAds(client) {
+    // Historically, Auto ads required a page-level init push. Some accounts still benefit from it.
+    // This is safe even if Auto ads is already enabled server-side.
+    if (window.__RDS_AUTO_ADS_INITED) return;
+    window.__RDS_AUTO_ADS_INITED = true;
+
+    window.adsbygoogle = window.adsbygoogle || [];
+    try {
+      window.adsbygoogle.push({
+        google_ad_client: client,
+        enable_page_level_ads: true,
+      });
+    } catch {
+      // Ignore (ad blockers, CSP, etc). Site should still function.
+    }
+  }
+
   function initAds() {
-    const client = getMetaContent("adsense-client");
+    const client = getClientId();
     if (!isRealClientId(client)) return;
+
+    // Ensure the script is present even if we have no manual ad slots yet.
+    ensureAdSenseScript(client);
+    initAutoAds(client);
 
     const allIns = Array.from(document.querySelectorAll("ins.adsbygoogle"));
     const eligible = allIns.filter((el) => {
@@ -66,7 +94,6 @@
     // Ensure client attribute is correct for all eligible ad units.
     for (const ins of eligible) ins.setAttribute("data-ad-client", client);
 
-    ensureAdSenseScript(client);
     unhideAdContainers(eligible);
     pushAds(eligible);
   }
