@@ -131,7 +131,7 @@ async function graphPost(path, params) {
   return json;
 }
 
-async function sleep(ms) {
+export async function sleep(ms) {
   await new Promise((r) => setTimeout(r, ms));
 }
 
