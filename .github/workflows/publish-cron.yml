@@ -22,4 +22,8 @@ jobs:
         env:
           CRON_URL: ${{ secrets.CRON_URL }}
           MAX_CALLS_PER_RUN: 1
+          # The API function can legitimately take up to ~60s (scrape + optional OpenAI + optional Facebook).
+          # If the client times out and retries, it can accidentally publish multiple items.
+          CRON_CALL_TIMEOUT_MS: 70000
+          CRON_PER_CALL_RETRIES: 1
 

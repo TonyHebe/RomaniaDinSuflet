@@ -222,6 +222,10 @@ it will publish multiple queued items back-to-back. To prevent bursts, set:
 - `MAX_CALLS_PER_RUN=1` in the scheduler, and/or
 - `MIN_PUBLISH_INTERVAL_SECONDS` in the API to enforce spacing between publishes.
 
+Also note: the GitHub cron runner (`scripts/publish-cron.mjs`) retries on timeouts/transient errors. If the API
+actually finished publishing but the HTTP response was lost (timeout), a retry can claim the next queue item and
+publish again. The recommended fix is to keep a non-zero `MIN_PUBLISH_INTERVAL_SECONDS` (default is 3600).
+
 To enable discovery, add these GitHub repo secrets:
 
 - `SOURCES_API_URL` = `https://YOUR_DOMAIN/api/sources`
