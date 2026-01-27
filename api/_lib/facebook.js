@@ -115,6 +115,37 @@ async function graphPost(path, params) {
   return json;
 }
 
+async function sleep(ms) {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+export async function getFacebookPhotoPageStoryId(photoId, { maxAttempts = 6 } = {}) {
+  const token = mustGetEnv("FB_PAGE_TOKEN");
+  if (!photoId) throw new Error("Missing photoId");
+
+  const attempts = Math.max(1, Number(maxAttempts) || 1);
+  let lastErr = null;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const lookedUp = await graphGet(`/${photoId}`, {
+        // page_story_id is the Page's feed story for the uploaded photo (the thing users see as "the post").
+        fields: "page_story_id",
+        access_token: token,
+      });
+      if (lookedUp?.page_story_id) return String(lookedUp.page_story_id);
+    } catch (err) {
+      lastErr = err;
+    }
+
+    // Exponential-ish backoff, capped.
+    const delay = Math.min(1500 * 2 ** i, 15000);
+    await sleep(delay);
+  }
+
+  if (lastErr) throw lastErr;
+  return null;
+}
+
 export async function postPhotoToFacebook({ imageUrl, caption } = {}) {
   const pageId = mustGetEnv("FB_PAGE_ID");
   const token = mustGetEnv("FB_PAGE_TOKEN");
@@ -139,11 +170,8 @@ export async function postPhotoToFacebook({ imageUrl, caption } = {}) {
 
   if (!postId && photoId) {
     try {
-      const lookedUp = await graphGet(`/${photoId}`, {
-        fields: "page_story_id",
-        access_token: token,
-      });
-      if (lookedUp?.page_story_id) postId = String(lookedUp.page_story_id);
+      // The story can take a few seconds to materialize. Poll briefly.
+      postId = await getFacebookPhotoPageStoryId(photoId, { maxAttempts: 6 });
     } catch {
       // ignore lookup failures; we'll return only the photo id
     }
@@ -176,9 +204,5 @@ export async function commentOnFacebookPost({ postId, message } = {}) {
     access_token: token,
   });
   return resp?.id || null;
-}
-
-export async function sleep(ms) {
-  await new Promise((r) => setTimeout(r, ms));
 }
 
