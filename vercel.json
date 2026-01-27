@@ -1,5 +1,8 @@
 {
   "version": 2,
-  "crons": []
+  "crons": [],
+  "rewrites": [
+    { "source": "/s/:slug", "destination": "/api/share/:slug" }
+  ]
 }
 
