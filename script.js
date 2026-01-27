@@ -100,14 +100,30 @@
         headers: { Accept: "application/json" },
         },
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+      let data = null;
+      if (contentType.includes("application/json")) {
+        data = await res.json().catch(() => null);
+      } else {
+        const text = await res.text().catch(() => "");
+        throw new Error(
+          `Non-JSON response from /api/articles (status=${res.status}, content-type=${contentType}): ${text.slice(
+            0,
+            200,
+          )}`,
+        );
+      }
+      if (!res.ok) {
+        const apiErr = typeof data?.error === "string" ? data.error : "";
+        throw new Error(`HTTP ${res.status}${apiErr ? `: ${apiErr}` : ""}`);
+      }
       const items = Array.isArray(data?.items) ? data.items : [];
       const totalPages = Number.isFinite(Number(data?.totalPages))
         ? Number(data.totalPages)
         : 0;
 
       if (!items.length) {
+        empty.textContent = "Nu există articole încă.";
         empty.hidden = false;
         list.innerHTML = "";
         pagination.hidden = true;
@@ -169,7 +185,9 @@
 
       renderStiriPagination({ el: pagination, page, totalPages });
     } catch (err) {
+      console.error("Failed to load articles.", err);
       // Keep the page usable even if API is not configured yet.
+      empty.textContent = "Nu am putut încărca articolele. Te rugăm reîncearcă mai târziu.";
       empty.hidden = false;
       list.innerHTML = "";
       pagination.hidden = true;
