@@ -210,6 +210,33 @@ export async function postLinkToFacebook({ link, message } = {}) {
   return { postId: resp?.id || null, raw: resp };
 }
 
+export async function getFacebookPostInfo(postId) {
+  const token = mustGetEnv("FB_PAGE_TOKEN");
+  if (!postId) throw new Error("Missing postId");
+
+  // Best-effort debug fields. Some fields may be permission-gated; keep it resilient.
+  const resp = await graphGet(`/${postId}`, {
+    fields:
+      "id,permalink_url,is_published,is_hidden,created_time,scheduled_publish_time,unpublished_content_type,status_type,type",
+    access_token: token,
+  });
+  return resp && typeof resp === "object" ? resp : null;
+}
+
+export async function tryMakeFacebookPostPublic(postId) {
+  const token = mustGetEnv("FB_PAGE_TOKEN");
+  if (!postId) throw new Error("Missing postId");
+
+  // Best-effort attempt to flip visibility in case the object was created as unpublished/hidden.
+  // This may fail depending on Graph API capabilities/permissions; callers should swallow errors.
+  const resp = await graphPost(`/${postId}`, {
+    is_published: true,
+    is_hidden: false,
+    access_token: token,
+  });
+  return resp && typeof resp === "object" ? resp : null;
+}
+
 export async function commentOnFacebookPost({ postId, message } = {}) {
   const token = mustGetEnv("FB_PAGE_TOKEN");
   if (!postId) throw new Error("Missing postId");
