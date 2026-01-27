@@ -72,6 +72,13 @@ function formatError(err) {
   return msg;
 }
 
+function isUpstreamRateLimitError(err) {
+  const msg = String(formatError(err) || "").toLowerCase();
+  // Our scraper throws: `Fetch failed (429) for https://...`
+  // Keep this conservative so we don't misclassify unrelated errors.
+  return msg.includes("fetch failed") && (msg.includes("(429)") || /\b429\b/.test(msg));
+}
+
 function deriveTitleFromText(text) {
   const t = String(text || "").trim();
   if (!t) return "";
@@ -478,6 +485,31 @@ export default async function handler(req, res) {
       });
     } catch (err) {
       const isConfig = err?.name === "ConfigError";
+      // If an upstream site throttles us (429), don't burn attempts and back off.
+      // This prevents a good source from becoming permanently "failed" just because
+      // the origin is temporarily rate limiting our IP/user-agent.
+      if (!isConfig && isUpstreamRateLimitError(err)) {
+        const cooldownEnv = process.env.SOURCE_429_COOLDOWN_SECONDS;
+        const cooldownSeconds =
+          cooldownEnv === undefined || String(cooldownEnv).trim() === ""
+            ? 1800
+            : Number.parseInt(String(cooldownEnv), 10);
+
+        const retryAfterSeconds =
+          Number.isFinite(cooldownSeconds) && cooldownSeconds > 0 ? cooldownSeconds : 1800;
+
+        const marked = await markSourcePendingNoAttempt(job.id, formatError(err));
+        res.status(200).json({
+          ok: true,
+          cooldown: true,
+          message: `Upstream rate limited this fetch (429). Cooling down for ~${retryAfterSeconds}s.`,
+          retryAfterSeconds,
+          job: { id: job.id, sourceUrl: job.sourceUrl },
+          marked,
+        });
+        return;
+      }
+
       const marked = isConfig
         ? await markSourcePendingNoAttempt(job.id, formatError(err))
         : await markSourceFailed(job.id, formatError(err));
