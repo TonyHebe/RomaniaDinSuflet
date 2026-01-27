@@ -78,22 +78,31 @@ export async function rewriteWithAI({
     .filter(Boolean)
     .join("\n");
 
-  const res = await fetch(OPENAI_URL, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.4,
-      max_tokens: maxTokens,
-      messages: [
-        { role: "system", content: "You are a helpful Romanian news editor." },
-        { role: "user", content: prompt },
-      ],
-    }),
-  });
+  const timeoutMs = Number.parseInt(process.env.OPENAI_TIMEOUT_MS || "30000", 10);
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(new Error("OpenAI timeout")), timeoutMs);
+  let res;
+  try {
+    res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        temperature: 0.4,
+        max_tokens: maxTokens,
+        messages: [
+          { role: "system", content: "You are a helpful Romanian news editor." },
+          { role: "user", content: prompt },
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(t);
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");

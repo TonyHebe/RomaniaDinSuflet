@@ -90,7 +90,15 @@ async function graphGet(path, params) {
     if (v === undefined || v === null) continue;
     url.searchParams.set(k, String(v));
   }
-  const res = await fetch(url, { method: "GET" });
+  const timeoutMs = Number.parseInt(process.env.FB_TIMEOUT_MS || "15000", 10);
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(new Error("Facebook timeout")), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, { method: "GET", signal: controller.signal });
+  } finally {
+    clearTimeout(t);
+  }
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.error) {
     if (json?.error) throw new FacebookGraphError(json.error, { status: res.status });
@@ -106,7 +114,15 @@ async function graphPost(path, params) {
     if (v === undefined || v === null) continue;
     url.searchParams.set(k, String(v));
   }
-  const res = await fetch(url, { method: "POST" });
+  const timeoutMs = Number.parseInt(process.env.FB_TIMEOUT_MS || "15000", 10);
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(new Error("Facebook timeout")), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, { method: "POST", signal: controller.signal });
+  } finally {
+    clearTimeout(t);
+  }
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.error) {
     if (json?.error) throw new FacebookGraphError(json.error, { status: res.status });
