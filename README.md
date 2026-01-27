@@ -146,15 +146,16 @@ Later (when we implement automation pipeline):
 - `FB_PAGE_TOKEN`
 - `FB_PAGE_ID`
 
-## Facebook auto-posting (photo + title + link in comments)
+## Facebook auto-posting (link posts for "All posts")
 
-When `FB_PAGE_ID` and `FB_PAGE_TOKEN` are set, each published article will be posted on your Facebook Page automatically:
+When `FB_PAGE_ID` and `FB_PAGE_TOKEN` are set, each published article will be posted on your Facebook Page automatically as a **link post** (so it shows under **All posts**):
 
-- **Post body**: `Titlul articolului` + `Vezi în comentarii.`
-- **Post image**: uses the scraped `imageUrl` from the source article (when available)
-- **First comment**: the site link to your article (`article.html?slug=...`)
+- **Post body**: `Titlul articolului`
+- **Post preview image/title**: comes from the share URL OG tags (`/s/<slug>`) and uses the scraped `imageUrl` when available
 
-If an article has no image, the system will fall back to a **link post** (still with the link also posted as a comment).
+Optional:
+
+- Set `FB_COMMENT_LINK=1` to also add the share URL as the first comment.
 
 ### Required Facebook setup
 
