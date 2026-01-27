@@ -21,6 +21,7 @@ import {
 } from "../_lib/openai.js";
 import {
   commentOnFacebookPost,
+  getFacebookPhotoPageStoryId,
   isFacebookPermissionConfigError,
   isFacebookTokenExpiredError,
   postLinkToFacebook,
@@ -68,6 +69,45 @@ function deriveTitleFromText(text) {
   const maxLen = 90;
   if (cleaned.length <= maxLen) return cleaned;
   return `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
+function shouldRetryFacebookCommentError(err) {
+  const msg = String(err?.fb?.message || err?.message || "").toLowerCase();
+  const code = Number(err?.fb?.code ?? err?.code ?? NaN);
+  const status = Number(err?.status ?? NaN);
+
+  // Common transient cases right after creating the post/photo:
+  // - "Unsupported post request"
+  // - "Object with ID ... does not exist"
+  if (code === 100 && /unsupported post request|object with id|does not exist|unknown object/.test(msg))
+    return true;
+
+  // General transient buckets per FB docs / observed behavior.
+  if ([1, 2, 4, 17].includes(code)) return true; // server error / throttling
+
+  if (Number.isFinite(status) && status >= 500) return true;
+
+  return false;
+}
+
+async function commentWithRetry({ targetId, message, maxAttempts = 6 } = {}) {
+  const attempts = Math.max(1, Number(maxAttempts) || 1);
+  let lastErr = null;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await commentOnFacebookPost({ postId: targetId, message });
+    } catch (err) {
+      lastErr = err;
+      // Do not retry systemic config/auth problems.
+      if (isFacebookTokenExpiredError(err) || isFacebookPermissionConfigError(err)) throw err;
+      if (!shouldRetryFacebookCommentError(err) || i === attempts - 1) throw err;
+      const delay = Math.min(1500 * 2 ** i, 15000);
+      await sleep(delay);
+    }
+  }
+  // Should be unreachable, but keep a safe fallback.
+  if (lastErr) throw lastErr;
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -243,6 +283,8 @@ export default async function handler(req, res) {
       let fbRaw = null;
       let fbOk = false;
       let fbError = null;
+      let fbCommentId = null;
+      let fbCommentTargetId = null;
       if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN) {
         fbEnabled = true;
         try {
@@ -263,11 +305,25 @@ export default async function handler(req, res) {
             fbRaw = resp?.raw || null;
           }
 
-          // Comment the article URL on the object we have (prefer the postId; fall back to photoId).
-          const commentTargetId = fbPostId || fbPhotoId;
-          if (commentTargetId) {
-            await sleep(2000);
-            await commentOnFacebookPost({ postId: commentTargetId, message: articleUrl });
+          // Comment the article URL on the FEED STORY (post) id when possible.
+          // Commenting on a raw photo object id may not appear as a visible “post comment” in the UI.
+          if (!fbPostId && fbPhotoId) {
+            try {
+              fbPostId = await getFacebookPhotoPageStoryId(fbPhotoId, { maxAttempts: 6 });
+            } catch {
+              // ignore; we'll fall back below
+            }
+          }
+
+          fbCommentTargetId = fbPostId || fbPhotoId || null;
+          if (fbCommentTargetId) {
+            // Give FB a moment to index the story.
+            await sleep(1500);
+            fbCommentId = await commentWithRetry({
+              targetId: fbCommentTargetId,
+              message: articleUrl,
+              maxAttempts: 6,
+            });
           }
           fbOk = true;
         } catch (err) {
@@ -319,6 +375,7 @@ export default async function handler(req, res) {
             // Helpful to debug “posted but not visible” cases:
             // - photoId with no postId can indicate an upload without a feed story.
             ids: { postId: fbPostId, photoId: fbPhotoId },
+            comment: { id: fbCommentId, targetId: fbCommentTargetId },
             raw: fbRaw,
             error: fbError,
           },
