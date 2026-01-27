@@ -37,6 +37,7 @@ async function getDeps() {
     tryMakeFacebookPostPublic: facebook.tryMakeFacebookPostPublic,
     isFacebookPermissionConfigError: facebook.isFacebookPermissionConfigError,
     isFacebookTokenExpiredError: facebook.isFacebookTokenExpiredError,
+    postPhotoToFacebook: facebook.postPhotoToFacebook,
     postLinkToFacebook: facebook.postLinkToFacebook,
     sleep: facebook.sleep,
   };
@@ -97,6 +98,26 @@ function deriveTitleFromText(text) {
   const maxLen = 90;
   if (cleaned.length <= maxLen) return cleaned;
   return `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
+function normalizeOgImageUrl(raw, siteUrl) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^data:/i.test(s)) return "";
+  try {
+    return new URL(s, siteUrl).toString();
+  } catch {
+    return "";
+  }
+}
+
+function parseEnvFlag(name, defaultValue) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || String(raw).trim() === "") return Boolean(defaultValue);
+  const v = String(raw).trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(v)) return true;
+  if (["0", "false", "no", "n", "off"].includes(v)) return false;
+  return Boolean(defaultValue);
 }
 
 function shouldRetryFacebookCommentError(err) {
@@ -163,6 +184,7 @@ export default async function handler(req, res) {
       isFacebookTokenExpiredError,
       getFacebookPostInfo,
       tryMakeFacebookPostPublic,
+      postPhotoToFacebook,
       postLinkToFacebook,
       sleep,
     } = await getDeps();
@@ -383,12 +405,23 @@ export default async function handler(req, res) {
       if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN) {
         fbEnabled = true;
         try {
-          fbMode = "link";
-          // Always publish a link post so it appears under "All posts".
-          // The share URL renders OG tags (title/description/image) for rich previews.
-          const resp = await postLinkToFacebook({ link: shareUrl, message: finalTitle });
-          fbPostId = resp?.postId || null;
-          fbRaw = resp?.raw || null;
+          // Prefer posting a photo + comment (better reach, link in comments).
+          // Fallback to link post if we don't have a usable image URL.
+          const imageUrl = normalizeOgImageUrl(finalImageUrl, siteUrl);
+          if (imageUrl) {
+            fbMode = "photo";
+            const resp = await postPhotoToFacebook({ imageUrl, caption: finalTitle });
+            fbPostId = resp?.postId || null;
+            fbPhotoId = resp?.photoId || null;
+            fbRaw = resp?.raw || null;
+          } else {
+            fbMode = "link";
+            // Publish a link post so it appears under "All posts".
+            // The share URL renders OG tags (title/description/image) for rich previews.
+            const resp = await postLinkToFacebook({ link: shareUrl, message: finalTitle });
+            fbPostId = resp?.postId || null;
+            fbRaw = resp?.raw || null;
+          }
 
           // Fetch post info to debug “only admins can see it” cases.
           if (fbPostId) {
@@ -409,12 +442,10 @@ export default async function handler(req, res) {
             }
           }
 
-          // Optional: also add the link as the first comment (kept off by default).
-          const shouldComment =
-            String(process.env.FB_COMMENT_LINK || "")
-              .trim()
-              .toLowerCase() === "true" || String(process.env.FB_COMMENT_LINK || "").trim() === "1";
-          fbCommentTargetId = fbPostId || null;
+          // By default: add the share URL as the first comment.
+          // You can disable with FB_COMMENT_LINK=0.
+          const shouldComment = parseEnvFlag("FB_COMMENT_LINK", true);
+          fbCommentTargetId = fbPostId || fbPhotoId || null;
           if (shouldComment && fbCommentTargetId) {
             await sleep(1500);
             fbCommentId = await commentWithRetry({

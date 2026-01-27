@@ -146,16 +146,17 @@ Later (when we implement automation pipeline):
 - `FB_PAGE_TOKEN`
 - `FB_PAGE_ID`
 
-## Facebook auto-posting (link posts for "All posts")
+## Facebook auto-posting (photo post + link in comments)
 
 When `FB_PAGE_ID` and `FB_PAGE_TOKEN` are set, each published article will be posted on your Facebook Page automatically as a **link post** (so it shows under **All posts**):
 
-- **Post body**: `Titlul articolului`
-- **Post preview image/title**: comes from the share URL OG tags (`/s/<slug>`) and uses the scraped `imageUrl` when available
+- **Default behavior**: publish a **photo post** (using the scraped `imageUrl` when available), then add the **share URL** as the first comment.
+- **Post caption**: `Titlul articolului`
+- **Fallback**: if no usable image is available, it posts a **link post** instead.
 
 Optional:
 
-- Set `FB_COMMENT_LINK=1` to also add the share URL as the first comment.
+- Set `FB_COMMENT_LINK=0` to disable adding the share URL as the first comment.
 
 ### Required Facebook setup
 
