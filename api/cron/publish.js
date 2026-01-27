@@ -33,11 +33,9 @@ async function getDeps() {
     titlesLookSame: openai.titlesLookSame,
     // facebook
     commentOnFacebookPost: facebook.commentOnFacebookPost,
-    getFacebookPhotoPageStoryId: facebook.getFacebookPhotoPageStoryId,
     isFacebookPermissionConfigError: facebook.isFacebookPermissionConfigError,
     isFacebookTokenExpiredError: facebook.isFacebookTokenExpiredError,
     postLinkToFacebook: facebook.postLinkToFacebook,
-    postPhotoToFacebook: facebook.postPhotoToFacebook,
     sleep: facebook.sleep,
   };
 
@@ -152,11 +150,9 @@ export default async function handler(req, res) {
       parseRewrite,
       rewriteWithAI,
       titlesLookSame,
-      getFacebookPhotoPageStoryId,
       isFacebookPermissionConfigError,
       isFacebookTokenExpiredError,
       postLinkToFacebook,
-      postPhotoToFacebook,
       sleep,
     } = await getDeps();
 
@@ -341,41 +337,23 @@ export default async function handler(req, res) {
       if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN) {
         fbEnabled = true;
         try {
-          const caption = `${finalTitle}\n\nVezi în comentarii.`;
-          if (finalImageUrl) {
-            fbMode = "photo";
-            const resp = await postPhotoToFacebook({
-              imageUrl: finalImageUrl,
-              caption,
-            });
-            fbPostId = resp?.postId || null;
-            fbPhotoId = resp?.photoId || null;
-            fbRaw = resp?.raw || null;
-          } else {
-            fbMode = "link";
-            // Post the share URL so the preview uses the article's OG image/title.
-            const resp = await postLinkToFacebook({ link: shareUrl, message: caption });
-            fbPostId = resp?.postId || null;
-            fbRaw = resp?.raw || null;
-          }
+          fbMode = "link";
+          // Always publish a link post so it appears under "All posts".
+          // The share URL renders OG tags (title/description/image) for rich previews.
+          const resp = await postLinkToFacebook({ link: shareUrl, message: finalTitle });
+          fbPostId = resp?.postId || null;
+          fbRaw = resp?.raw || null;
 
-          // Comment the article URL on the FEED STORY (post) id when possible.
-          // Commenting on a raw photo object id may not appear as a visible “post comment” in the UI.
-          if (!fbPostId && fbPhotoId) {
-            try {
-              fbPostId = await getFacebookPhotoPageStoryId(fbPhotoId, { maxAttempts: 6 });
-            } catch {
-              // ignore; we'll fall back below
-            }
-          }
-
-          fbCommentTargetId = fbPostId || fbPhotoId || null;
-          if (fbCommentTargetId) {
-            // Give FB a moment to index the story.
+          // Optional: also add the link as the first comment (kept off by default).
+          const shouldComment =
+            String(process.env.FB_COMMENT_LINK || "")
+              .trim()
+              .toLowerCase() === "true" || String(process.env.FB_COMMENT_LINK || "").trim() === "1";
+          fbCommentTargetId = fbPostId || null;
+          if (shouldComment && fbCommentTargetId) {
             await sleep(1500);
             fbCommentId = await commentWithRetry({
               targetId: fbCommentTargetId,
-              // Comment the share URL so the comment shows a rich preview (image + title).
               message: shareUrl,
               maxAttempts: 6,
             });
