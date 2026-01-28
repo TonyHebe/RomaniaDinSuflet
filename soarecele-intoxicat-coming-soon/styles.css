@@ -1,0 +1,45 @@
+/* Minimal "coming soon" page */
+:root {
+  color-scheme: dark;
+  --bg: #0b0d12;
+  --fg: #eef2ff;
+  --muted: rgba(238, 242, 255, 0.72);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(1200px 700px at 20% 20%, #121a2e 0%, var(--bg) 55%)
+    fixed;
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.wrap {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 48px 18px;
+  text-align: center;
+}
+
+h1 {
+  margin: 0 0 10px 0;
+  font-size: clamp(32px, 6vw, 54px);
+  letter-spacing: 0.02em;
+}
+
+.soon {
+  margin: 0;
+  font-size: clamp(18px, 3vw, 22px);
+  color: var(--muted);
+}
