@@ -88,6 +88,37 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
       return null;
     }
 
+    // Look at recent posts to bias selection toward sources that haven't been posted recently.
+    // This helps prevent "draining" one big backlog (e.g. cancan/g4media) before we ever reach newer sources.
+    const recentPostedLimit = 2000;
+    const { rows: recentPosted } = await client.query(
+      `
+        select
+          source_url as "sourceUrl",
+          processed_at as "processedAt"
+        from source_queue
+        where status = 'posted'
+        order by processed_at desc nulls last, updated_at desc
+        limit $1
+      `,
+      [recentPostedLimit],
+    );
+
+    const hostToLastPostedAt = new Map();
+    for (const r of recentPosted || []) {
+      if (!r?.sourceUrl) continue;
+      if (!r?.processedAt) continue;
+      let host = null;
+      try {
+        host = new URL(String(r.sourceUrl)).hostname.toLowerCase();
+      } catch {
+        host = null;
+      }
+      if (!host) continue;
+      // First occurrence wins because results are ordered by processed_at desc.
+      if (!hostToLastPostedAt.has(host)) hostToLastPostedAt.set(host, r.processedAt);
+    }
+
     const enriched = candidates.map((c) => {
       let host = null;
       try {
@@ -98,7 +129,7 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
       return { ...c, host };
     });
 
-    // Pick the host whose oldest queued item is earliest, excluding lastPostedHost if possible.
+    // Group by host, tracking the oldest pending item per host.
     const hostToOldestCreatedAt = new Map();
     for (const c of enriched) {
       if (!c.host) continue;
@@ -108,10 +139,42 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
 
     let chosenHost = null;
     if (hostToOldestCreatedAt.size > 0) {
-      const hosts = Array.from(hostToOldestCreatedAt.entries())
-        .filter(([h]) => !lastPostedHost || h !== lastPostedHost)
-        .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
-      if (hosts.length > 0) chosenHost = hosts[0][0];
+      const hostMeta = Array.from(hostToOldestCreatedAt.entries()).map(([host, oldestPendingCreatedAt]) => {
+        const lastPostedAt = hostToLastPostedAt.get(host) || null;
+        return {
+          host,
+          oldestPendingCreatedAt,
+          lastPostedAt,
+          isSameAsLastPosted: lastPostedHost ? host === lastPostedHost : false,
+        };
+      });
+
+      // Prefer a different host than the last post if we can.
+      // Primary goal: distribute across sources (hosts never posted show up immediately).
+      hostMeta.sort((a, b) => {
+        // 1) Avoid repeating same host twice in a row when possible.
+        if (a.isSameAsLastPosted !== b.isSameAsLastPosted) return a.isSameAsLastPosted ? 1 : -1;
+
+        // 2) Prefer hosts that have never been posted (null lastPostedAt).
+        const aNever = a.lastPostedAt === null;
+        const bNever = b.lastPostedAt === null;
+        if (aNever !== bNever) return aNever ? -1 : 1;
+
+        // 3) Prefer the least recently posted host.
+        if (a.lastPostedAt && b.lastPostedAt) {
+          const at = new Date(a.lastPostedAt).getTime();
+          const bt = new Date(b.lastPostedAt).getTime();
+          if (at !== bt) return at < bt ? -1 : 1;
+        }
+
+        // 4) Tie-break: oldest pending item first.
+        if (a.oldestPendingCreatedAt !== b.oldestPendingCreatedAt) {
+          return a.oldestPendingCreatedAt < b.oldestPendingCreatedAt ? -1 : 1;
+        }
+        return 0;
+      });
+
+      chosenHost = hostMeta[0]?.host || null;
     }
 
     const pickFromHost = chosenHost
