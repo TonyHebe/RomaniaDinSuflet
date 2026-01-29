@@ -4,6 +4,7 @@ const FEEDS = [
   { name: "g4media-articole", url: "https://www.g4media.ro/articole/feed" },
   { name: "ciao-news", url: "https://ciao.ro/news/feed/" },
   { name: "unica-stiri", url: "https://www.unica.ro/stiri/feed" },
+  { name: "jli-stiri", url: "https://jli.ro/category/stiri/feed/" },
 ];
 
 function readIntEnv(name, fallback) {

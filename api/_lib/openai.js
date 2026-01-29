@@ -154,6 +154,133 @@ export async function rewriteWithAI({
   throw lastErr || new Error("OpenAI error");
 }
 
+function cleanSingleLineTitle(raw) {
+  const s = String(raw || "")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((l) => String(l || "").trim())
+    .filter(Boolean)[0] || "";
+  let t = s.replace(/^(titlu|title)\s*[:\-]\s*/i, "").trim();
+  t = t.replace(/^["„”'’]+|["„”'’]+$/g, "").trim();
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+
+function extractNumberTokens(text) {
+  const matches = String(text || "").match(/\d+/g) || [];
+  return Array.from(new Set(matches));
+}
+
+export async function rewriteFacebookTitleWithAI({
+  title,
+  content,
+  sourceUrl,
+  category = "stiri",
+} = {}) {
+  const apiKey = mustGetKey();
+  const sourceTitle = String(title || "").trim();
+  const sourceContent = String(content || "").trim().slice(0, 2500);
+  const numbers = extractNumberTokens(sourceTitle);
+
+  const maxChars = Number.parseInt(process.env.FB_TITLE_MAX_CHARS || "120", 10);
+  const targetMax = Number.isFinite(maxChars) ? Math.max(60, Math.min(180, maxChars)) : 120;
+
+  const prompt = [
+    "Rescrie DOAR titlul pentru un POST pe Facebook în limba română.",
+    "IMPORTANT: Păstrează ideea principală și faptele-cheie (cine/ce/unde). Nu inventa nimic și nu adăuga detalii noi.",
+    "Păstrează numele proprii și toate cifrele (numerele) din titlul original, dacă există.",
+    `Țintește maximum ${targetMax} caractere (fără „Vezi in comentarii”).`,
+    "Stil: o propoziție scurtă, cu impact. Dacă se potrivește natural, creează curiozitate și termină cu „…” (ex: „înainte să…” / „după ce…” / „când…”).",
+    "NU include: „Vezi in comentarii”, emoji-uri, hashtag-uri, ghilimele, rânduri multiple.",
+    "Returnează exact o singură linie: titlul rescris.",
+    "",
+    `Categorie: ${category}`,
+    sourceUrl ? `Sursă: ${String(sourceUrl).slice(0, 200)}` : null,
+    "",
+    `Titlu original: ${sourceTitle}`.trim(),
+    "",
+    "Context (fragment):",
+    sourceContent,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const timeoutMs = Number.parseInt(process.env.FB_TITLE_OPENAI_TIMEOUT_MS || "12000", 10);
+  const retries = Number.parseInt(process.env.FB_TITLE_OPENAI_RETRIES || "1", 10);
+  const maxAttempts = Math.max(1, (Number.isFinite(retries) ? retries : 1) + 1);
+
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const t = setTimeout(
+      () => controller.abort(new Error(`OpenAI timeout after ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+    try {
+      const res = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: process.env.FB_TITLE_OPENAI_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
+          temperature: 0.6,
+          max_tokens: 120,
+          messages: [
+            { role: "system", content: "You are a helpful Romanian social media editor." },
+            { role: "user", content: prompt },
+          ],
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        const err = new Error(`OpenAI error (${res.status}): ${text.slice(0, 400)}`);
+        err.status = res.status;
+        lastErr = err;
+        if (!isRetryableStatus(res.status) || attempt >= maxAttempts) throw err;
+      } else {
+        const data = await res.json();
+        const out = data?.choices?.[0]?.message?.content;
+        if (!out) throw new Error("OpenAI returned empty response");
+
+        let fbTitle = cleanSingleLineTitle(out);
+        // Ensure the model doesn't include our CTA.
+        fbTitle = fbTitle.replace(/\s*(?:\.\.\.|…)?\s*vezi in comentarii[\s\S]*$/i, "").trim();
+        fbTitle = fbTitle.replace(/\s+/g, " ").trim();
+
+        if (!fbTitle) throw new Error("OpenAI returned empty title");
+        if (isBadTitle(fbTitle)) throw new Error("OpenAI returned invalid title");
+
+        // Hard guard: if the original title contains numbers, keep them.
+        for (const n of numbers) {
+          if (!fbTitle.includes(n)) throw new Error("OpenAI title removed important numbers");
+        }
+
+        // Keep a reasonable length (best-effort).
+        if (fbTitle.length > 220) fbTitle = `${fbTitle.slice(0, 219).trimEnd()}…`;
+
+        return fbTitle;
+      }
+    } catch (err) {
+      lastErr = err;
+      const status = Number(err?.status ?? NaN);
+      const retryable = isTimeoutError(err) || isRetryableStatus(status);
+      if (!retryable || attempt >= maxAttempts) throw err;
+    } finally {
+      clearTimeout(t);
+    }
+
+    const base = 600 * 2 ** (attempt - 1);
+    const jitter = Math.floor(Math.random() * 250);
+    await sleep(Math.min(2500, base + jitter));
+  }
+
+  throw lastErr || new Error("OpenAI error");
+}
+
 export function parseRewrite(text) {
   const raw = String(text || "").trim();
   if (!raw) throw new Error("Invalid rewrite format");
