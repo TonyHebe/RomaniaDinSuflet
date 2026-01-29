@@ -30,6 +30,7 @@ async function getDeps() {
     isBadTitle: openai.isBadTitle,
     parseRewrite: openai.parseRewrite,
     rewriteWithAI: openai.rewriteWithAI,
+    rewriteFacebookTitleWithAI: openai.rewriteFacebookTitleWithAI,
     titlesLookSame: openai.titlesLookSame,
     // facebook
     commentOnFacebookPost: facebook.commentOnFacebookPost,
@@ -125,10 +126,13 @@ const FB_POST_TITLE_SUFFIX = "...Vezi in comentarii 👇👇";
 function buildFacebookPostTitle(title) {
   const t = String(title || "").replace(/\s+/g, " ").trim();
   if (!t) return "";
-  // Avoid double-appending if we already have the CTA.
-  if (/vezi in comentarii/i.test(t)) return t;
+  // Always end with the CTA, but avoid duplicating if it is already present.
+  // If an upstream (AI/user) title contains it, strip and re-append consistently.
+  const base = t.replace(/\s*(?:\.\.\.|…)?\s*vezi in comentarii[\s\S]*$/i, "").trim() || t;
+  const endsWithEllipsis = /(\.\.\.|…)$/.test(base);
+  if (endsWithEllipsis) return `${base}Vezi in comentarii 👇👇`;
   // Keep the suffix formatting consistent: `Title...Vezi in comentarii 👇👇`
-  return `${t.replace(/[\s.?!…]+$/g, "")}${FB_POST_TITLE_SUFFIX}`;
+  return `${base.replace(/[\s.?!]+$/g, "")}${FB_POST_TITLE_SUFFIX}`;
 }
 
 function shouldRetryFacebookCommentError(err) {
@@ -190,6 +194,7 @@ export default async function handler(req, res) {
       isBadTitle,
       parseRewrite,
       rewriteWithAI,
+      rewriteFacebookTitleWithAI,
       titlesLookSame,
       isFacebookPermissionConfigError,
       isFacebookTokenExpiredError,
@@ -416,7 +421,27 @@ export default async function handler(req, res) {
       if (process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN) {
         fbEnabled = true;
         try {
-          const fbPostTitle = buildFacebookPostTitle(finalTitle) || finalTitle;
+          let fbBaseTitle = finalTitle;
+          const fbTitleAiEnabled = parseEnvFlag(
+            "FB_TITLE_AI",
+            Boolean(process.env.OPENAI_API_KEY),
+          );
+          if (fbTitleAiEnabled && process.env.OPENAI_API_KEY) {
+            try {
+              const rewritten = await rewriteFacebookTitleWithAI({
+                title: finalTitle,
+                content: finalContent,
+                sourceUrl: job.sourceUrl,
+                category: "stiri",
+              });
+              if (rewritten && String(rewritten).trim()) fbBaseTitle = String(rewritten).trim();
+            } catch {
+              // best-effort: keep original finalTitle
+              fbBaseTitle = finalTitle;
+            }
+          }
+
+          const fbPostTitle = buildFacebookPostTitle(fbBaseTitle) || buildFacebookPostTitle(finalTitle) || finalTitle;
 
           // Prefer posting a photo + comment (better reach, link in comments).
           // Fallback to link post if we don't have a usable image URL.
