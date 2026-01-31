@@ -188,6 +188,11 @@ a {
   border-top: 1px solid var(--border);
 }
 
+.adsterra-inline {
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+
 .ad-label {
   font-size: 12px;
   font-weight: 800;
@@ -202,6 +207,35 @@ a {
   border-radius: 16px;
   overflow: hidden;
   background: rgba(16, 17, 20, 0.03);
+}
+
+.adsterra-slot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60px;
+}
+
+.adsterra-slot iframe {
+  border: 0;
+  display: block;
+}
+
+.adsterra-sticky {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.92);
+  border-top: 1px solid var(--border);
+  z-index: 60;
+}
+
+.adsterra-sticky .adsterra-slot {
+  min-height: 50px;
 }
 
 .section-head {
@@ -502,6 +536,13 @@ a {
   }
   .article-thumb {
     height: 200px;
+  }
+}
+
+/* Make room for sticky 320x50 */
+@media (max-width: 720px) {
+  .site-main {
+    padding-bottom: 110px;
   }
 }
 
