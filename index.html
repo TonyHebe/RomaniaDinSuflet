@@ -76,6 +76,14 @@
         <h1 id="page-title">Home</h1>
       </section>
 
+      <!-- Adsterra -->
+      <section class="ad-section" aria-label="Publicitate">
+        <div class="container">
+          <div class="ad-label" aria-hidden="true">Publicitate</div>
+          <div class="adsterra-slot" id="adsterra-home-native"></div>
+        </div>
+      </section>
+
       <!-- AdSense: fill data-ad-slot with your real slot id to enable -->
       <section class="ad-section" data-ad="home_top" aria-label="Publicitate" hidden>
         <div class="container">
@@ -96,6 +104,11 @@
           <div class="section-head">
             <h2 class="section-title" id="stiri-title">Știri</h2>
             <p class="section-muted">Ultimele articole publicate.</p>
+          </div>
+
+          <div class="adsterra-inline" aria-label="Publicitate">
+            <div class="ad-label" aria-hidden="true">Publicitate</div>
+            <div class="adsterra-slot" id="adsterra-home-300x250"></div>
           </div>
 
           <div class="articles" id="stiri-list" aria-live="polite"></div>
@@ -134,7 +147,13 @@
       </div>
     </footer>
 
+    <!-- Sticky Adsterra (320x50) -->
+    <div class="adsterra-sticky" aria-label="Publicitate">
+      <div id="adsterra-sticky-320x50"></div>
+    </div>
+
     <script src="./ads.js" defer></script>
+    <script src="./adsterra.js" defer></script>
     <script src="./script.js" defer></script>
   </body>
 </html>
