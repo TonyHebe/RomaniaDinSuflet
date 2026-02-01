@@ -8,20 +8,19 @@
       name="description"
       content="Romania Din Suflet — știri, rețete, vedete, sport, utile și horoscop."
     />
+    <!-- Ads provider(s): "adsense", "adsterra", or "adsense,adsterra" -->
+    <meta name="ads-provider" content="adsense" />
     <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
     <!-- Official AdSense account meta (recommended by Google) -->
     <meta name="google-adsense-account" content="ca-pub-9846184063862431" />
-    <!-- AdSense code snippet (required for Auto ads) -->
-    <script
-      async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9846184063862431"
-      crossorigin="anonymous"
-    ></script>
+    <!-- AdSense script is injected by ads.js when enabled -->
     <!-- In-feed ads (Știri list). Provide one or more numeric slot IDs, comma-separated. -->
     <meta name="adsense-infeed-slots" content="REPLACE_ME" />
     <!-- Insert an ad after every N articles (set 1 = after each article). -->
     <meta name="adsense-infeed-every" content="1" />
+    <!-- Adsterra: replace with your real Adsterra key to enable -->
+    <meta name="adsterra-home-top-key" content="REPLACE_ME" />
 
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
@@ -88,6 +87,63 @@
             data-ad-format="auto"
             data-full-width-responsive="true"
           ></ins>
+        </div>
+      </section>
+
+      <!-- Adsterra (banner): enabled when adsterra-home-top-key is set -->
+      <section
+        class="ad-section"
+        data-ad="home_top_adsterra"
+        aria-label="Publicitate (Adsterra)"
+        hidden
+      >
+        <div class="container">
+          <div class="ad-label" aria-hidden="true">Publicitate</div>
+          <div class="ad-slot">
+            <script type="text/javascript">
+              (() => {
+                const providers = (
+                  document.querySelector('meta[name="ads-provider"]')?.content || ""
+                )
+                  .split(",")
+                  .map((s) => s.trim().toLowerCase())
+                  .filter(Boolean);
+                const adsterraEnabled = providers.includes("adsterra");
+                if (!adsterraEnabled) return;
+
+                const key = (
+                  document.querySelector('meta[name="adsterra-home-top-key"]')?.content || ""
+                ).trim();
+                if (!/^[a-z0-9]+$/i.test(key) || /^replace_me$/i.test(key)) return;
+
+                const section = document.querySelector('[data-ad="home_top_adsterra"]');
+                if (section) section.hidden = false;
+
+                const isMobile =
+                  window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+                const width = isMobile ? 320 : 728;
+                const height = isMobile ? 50 : 90;
+
+                // Adsterra banner script expects a global atOptions.
+                window.atOptions = {
+                  key,
+                  format: "iframe",
+                  height,
+                  width,
+                  params: {},
+                };
+
+                // Keep it parse-time to avoid issues with older ad scripts.
+                document.write(
+                  '<scr' +
+                    'ipt type="text/javascript" src="https://www.highperformanceformat.com/' +
+                    key +
+                    '/invoke.js"></scr' +
+                    "ipt>",
+                );
+              })();
+            </script>
+          </div>
         </div>
       </section>
 
