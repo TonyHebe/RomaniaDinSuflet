@@ -6,7 +6,7 @@
     <title>Articol — Romania Din Suflet</title>
     <meta name="description" content="Articol — Romania Din Suflet" />
     <!-- Ads provider(s): "adsense", "adsterra", or "adsense,adsterra" -->
-    <meta name="ads-provider" content="adsense" />
+    <meta name="ads-provider" content="adsense,adsterra" />
     <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
     <!-- Official AdSense account meta (recommended by Google) -->
@@ -76,50 +76,15 @@
             hidden
           >
             <div class="ad-label" aria-hidden="true">Publicitate</div>
-            <div class="ad-slot">
-              <script type="text/javascript">
-                (() => {
-                  const providers = (
-                    document.querySelector('meta[name="ads-provider"]')?.content || ""
-                  )
-                    .split(",")
-                    .map((s) => s.trim().toLowerCase())
-                    .filter(Boolean);
-                  const adsterraEnabled = providers.includes("adsterra");
-                  if (!adsterraEnabled) return;
-
-                  const key = (
-                    document.querySelector('meta[name="adsterra-article-top-key"]')?.content ||
-                    ""
-                  ).trim();
-                  if (!/^[a-z0-9]+$/i.test(key) || /^replace_me$/i.test(key)) return;
-
-                  const section = document.querySelector('[data-ad="article_top_adsterra"]');
-                  if (section) section.hidden = false;
-
-                  const isMobile =
-                    window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
-                  const width = isMobile ? 320 : 728;
-                  const height = isMobile ? 50 : 90;
-
-                  window.atOptions = {
-                    key,
-                    format: "iframe",
-                    height,
-                    width,
-                    params: {},
-                  };
-
-                  document.write(
-                    '<scr' +
-                      'ipt type="text/javascript" src="https://www.highperformanceformat.com/' +
-                      key +
-                      '/invoke.js"></scr' +
-                      "ipt>",
-                  );
-                })();
-              </script>
-            </div>
+            <div
+              class="ad-slot adsterra-slot"
+              data-adsterra-key-meta="adsterra-article-top-key"
+              data-adsterra-config-field="articleTopKey"
+              data-adsterra-width="728"
+              data-adsterra-height="90"
+              data-adsterra-width-mobile="320"
+              data-adsterra-height-mobile="50"
+            ></div>
           </div>
 
           <img
