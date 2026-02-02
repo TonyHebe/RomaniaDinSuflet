@@ -7,7 +7,10 @@ on:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    # Pin to a stable runner image. `ubuntu-latest` currently maps to ubuntu-24.04,
+    # and we've been seeing frequent "job was not acquired by Runner of type hosted"
+    # cancellations. ubuntu-22.04 generally has better availability and fewer surprises.
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
