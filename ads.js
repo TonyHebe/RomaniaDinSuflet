@@ -1,4 +1,14 @@
 (() => {
+  function getProvider() {
+    const el = document.querySelector('meta[name="ads-provider"]');
+    const raw = el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
+    // Examples: "adsense", "adsterra", "adsense,adsterra"
+    return raw
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
   function getMetaContent(name) {
     const el = document.querySelector(`meta[name="${CSS.escape(name)}"]`);
     return el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
@@ -75,6 +85,11 @@
   }
 
   function initAds() {
+    const providers = getProvider();
+    // Default behavior (backwards compatible): if no meta is set, assume AdSense.
+    const adsenseEnabled = providers.length === 0 || providers.includes("adsense");
+    if (!adsenseEnabled) return;
+
     const client = getClientId();
     if (!isRealClientId(client)) return;
 

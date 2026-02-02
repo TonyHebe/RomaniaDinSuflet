@@ -139,6 +139,33 @@ Implementation details:
 - The homepage feed is loaded dynamically; after render, `script.js` calls `window.__RDS_INIT_ADS()` to render newly inserted in-feed ads.
 - If AdSense is blocked (ad blockers, CSP, etc), it fails safely and the site remains usable.
 
+## Adsterra (ads)
+
+This repo now includes **Adsterra ad placeholders** for the main fixed placements (homepage top + article top).
+
+### Provider switch
+
+Each HTML page has a meta setting:
+
+- `meta[name="ads-provider"]` = `adsense`, `adsterra`, or `adsense,adsterra`
+
+If `adsense` is not included, `ads.js` will **not** initialize AdSense.
+
+### Enable Adsterra
+
+1) In Adsterra, create a banner zone and copy its **key**.
+2) Set `ads-provider` to include `adsterra`.
+3) Paste keys into:
+
+- `index.html`: `meta[name="adsterra-home-top-key"]`
+- `article.html`: `meta[name="adsterra-article-top-key"]`
+
+Notes:
+
+- This implementation uses Adsterra’s standard banner loader from `www.highperformanceformat.com/<KEY>/invoke.js`.
+- The banner size switches automatically between **728×90** (desktop) and **320×50** (mobile).
+- Adsterra is only wired for the **fixed** placements above; the dynamic in-feed / in-article insertion logic remains AdSense-only.
+
 Later (when we implement automation pipeline):
 
 - `OPENAI_API_KEY`

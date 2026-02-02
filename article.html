@@ -5,22 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Articol — Romania Din Suflet</title>
     <meta name="description" content="Articol — Romania Din Suflet" />
+    <!-- Ads provider(s): "adsense", "adsterra", or "adsense,adsterra" -->
+    <meta name="ads-provider" content="adsense" />
     <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
     <!-- Official AdSense account meta (recommended by Google) -->
     <meta name="google-adsense-account" content="ca-pub-9846184063862431" />
-    <!-- AdSense code snippet (required for Auto ads) -->
-    <script
-      async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9846184063862431"
-      crossorigin="anonymous"
-    ></script>
+    <!-- AdSense script is injected by ads.js when enabled -->
     <!-- In-article ads (inside article text). Provide one or more numeric slot IDs, comma-separated. -->
     <meta name="adsense-article-incontent-slots" content="REPLACE_ME" />
     <!-- Insert an ad after every N paragraphs (example: 3 = after 3rd, 6th, 9th...). -->
     <meta name="adsense-article-incontent-every" content="3" />
     <!-- Start inserting only after paragraph N (example: 2 = after the 2nd paragraph). -->
     <meta name="adsense-article-incontent-start" content="2" />
+    <!-- Adsterra: replace with your real Adsterra key to enable -->
+    <meta name="adsterra-article-top-key" content="REPLACE_ME" />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
     <!-- Vercel Web Analytics -->
@@ -67,6 +66,60 @@
               data-ad-format="auto"
               data-full-width-responsive="true"
             ></ins>
+          </div>
+
+          <!-- Adsterra (banner): enabled when adsterra-article-top-key is set -->
+          <div
+            class="ad-section"
+            data-ad="article_top_adsterra"
+            aria-label="Publicitate (Adsterra)"
+            hidden
+          >
+            <div class="ad-label" aria-hidden="true">Publicitate</div>
+            <div class="ad-slot">
+              <script type="text/javascript">
+                (() => {
+                  const providers = (
+                    document.querySelector('meta[name="ads-provider"]')?.content || ""
+                  )
+                    .split(",")
+                    .map((s) => s.trim().toLowerCase())
+                    .filter(Boolean);
+                  const adsterraEnabled = providers.includes("adsterra");
+                  if (!adsterraEnabled) return;
+
+                  const key = (
+                    document.querySelector('meta[name="adsterra-article-top-key"]')?.content ||
+                    ""
+                  ).trim();
+                  if (!/^[a-z0-9]+$/i.test(key) || /^replace_me$/i.test(key)) return;
+
+                  const section = document.querySelector('[data-ad="article_top_adsterra"]');
+                  if (section) section.hidden = false;
+
+                  const isMobile =
+                    window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+                  const width = isMobile ? 320 : 728;
+                  const height = isMobile ? 50 : 90;
+
+                  window.atOptions = {
+                    key,
+                    format: "iframe",
+                    height,
+                    width,
+                    params: {},
+                  };
+
+                  document.write(
+                    '<scr' +
+                      'ipt type="text/javascript" src="https://www.highperformanceformat.com/' +
+                      key +
+                      '/invoke.js"></scr' +
+                      "ipt>",
+                  );
+                })();
+              </script>
+            </div>
           </div>
 
           <img
