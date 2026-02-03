@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ad</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      (function () {
+        function qs(name) {
+          try {
+            return new URL(window.location.href).searchParams.get(name) || "";
+          } catch {
+            return "";
+          }
+        }
+
+        var KEY = String(qs("key") || "").trim();
+        var W = parseInt(String(qs("w") || "0"), 10);
+        var H = parseInt(String(qs("h") || "0"), 10);
+        var TOKEN = String(qs("token") || "").trim();
+
+        function send(status, detail) {
+          try {
+            parent.postMessage(
+              {
+                source: "rds_ads",
+                type: "adsterra",
+                token: TOKEN,
+                status: String(status),
+                detail: String(detail || ""),
+              },
+              "*",
+            );
+          } catch {
+            // ignore
+          }
+        }
+
+        function hasAdContent() {
+          try {
+            if (document.querySelector("iframe")) return true;
+            if (document.querySelector("img,object,embed")) return true;
+            var kids = document.body ? Array.prototype.slice.call(document.body.children || []) : [];
+            for (var i = 0; i < kids.length; i += 1) {
+              var t = String(kids[i] && kids[i].tagName ? kids[i].tagName : "").toUpperCase();
+              if (t && t !== "SCRIPT" && t !== "STYLE") return true;
+            }
+          } catch {
+            // ignore
+          }
+          return false;
+        }
+
+        if (!TOKEN) {
+          send("unfilled", "missing token");
+          return;
+        }
+        if (!KEY || /^replace_me$/i.test(KEY)) {
+          send("unfilled", "missing/invalid key");
+          return;
+        }
+        if (!(W > 0 && H > 0)) {
+          // Not fatal; Adsterra can still render, but we keep the values sane.
+          W = W > 0 ? W : 300;
+          H = H > 0 ? H : 250;
+        }
+
+        var done = false;
+        function finish(status, detail) {
+          if (done) return;
+          done = true;
+          send(status, detail);
+        }
+
+        window.atOptions = {
+          key: KEY,
+          format: "iframe",
+          height: H,
+          width: W,
+          params: {},
+        };
+
+        var src = "https://www.highperformanceformat.com/" + encodeURIComponent(KEY) + "/invoke.js";
+        var s = document.createElement("script");
+        s.type = "text/javascript";
+        s.src = src;
+        s.onload = function () {
+          var start = Date.now();
+          (function poll() {
+            if (hasAdContent()) return finish("filled", "content detected");
+            if (Date.now() - start > 9000) return finish("unfilled", "no content detected after grace window");
+            setTimeout(poll, 250);
+          })();
+        };
+        s.onerror = function () {
+          finish("blocked", "invoke.js failed to load (blocked/CSP/network)");
+        };
+        document.body.appendChild(s);
+
+        setTimeout(function () {
+          if (!done && hasAdContent()) finish("filled", "content detected (timeout fallback)");
+          else if (!done) finish("unfilled", "no load/error event within timeout");
+        }, 12000);
+      })();
+    </script>
+  </body>
+</html>
+
