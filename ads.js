@@ -267,105 +267,13 @@
     pushAds(eligible);
   }
 
-  function buildAdsterraIframeSrcDoc({ key, width, height }) {
-    const keyStr = JSON.stringify(String(key));
-    const w = Number(width) || 728;
-    const h = Number(height) || 90;
-    const src = `https://www.highperformanceformat.com/${encodeURIComponent(String(key))}/invoke.js`;
-
-    // Run inside a sandboxed iframe so any document.write inside invoke.js cannot affect the main page.
-    return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ad</title>
-  </head>
-  <body style="margin:0;padding:0;overflow:hidden;">
-    <script type="text/javascript">
-      (function () {
-        // NOTE: this document is sandboxed WITHOUT allow-same-origin, so the parent cannot inspect it.
-        // Use postMessage to notify the parent when we actually see ad content.
-        var TOKEN = "__RDS_TOKEN__";
-        function send(status, detail) {
-          try {
-            parent.postMessage(
-              {
-                source: "rds_ads",
-                type: "adsterra",
-                token: TOKEN,
-                status: String(status),
-                detail: String(detail || ""),
-              },
-              "*",
-            );
-          } catch (e) {
-            // ignore
-          }
-        }
-
-        function hasAdContent() {
-          try {
-            // Most Adsterra invoke scripts insert an iframe.
-            if (document.querySelector("iframe")) return true;
-            if (document.querySelector("img,object,embed")) return true;
-
-            // Fallback: any non-script element suggests something rendered.
-            var kids = document.body ? Array.prototype.slice.call(document.body.children || []) : [];
-            for (var i = 0; i < kids.length; i += 1) {
-              var t = String(kids[i] && kids[i].tagName ? kids[i].tagName : "").toUpperCase();
-              if (t && t !== "SCRIPT" && t !== "STYLE") return true;
-            }
-          } catch (e) {
-            // ignore
-          }
-          return false;
-        }
-
-        var done = false;
-        function finish(status, detail) {
-          if (done) return;
-          done = true;
-          send(status, detail);
-        }
-
-        // Expose handlers for the <script onload/onerror> attributes below.
-        window.__RDS_ADSTERRA_ONLOAD = function () {
-          // Poll for actual content for a short grace window.
-          var start = Date.now();
-          (function poll() {
-            if (hasAdContent()) return finish("filled", "content detected");
-            if (Date.now() - start > 9000) return finish("unfilled", "no content detected after grace window");
-            setTimeout(poll, 250);
-          })();
-        };
-        window.__RDS_ADSTERRA_ONERROR = function () {
-          finish("blocked", "invoke.js failed to load (blocked/CSP/network)");
-        };
-
-        window.atOptions = {
-          key: ${keyStr},
-          format: "iframe",
-          height: ${h},
-          width: ${w},
-          params: {},
-        };
-
-        // Absolute fallback: if neither onload nor onerror fires, keep it hidden.
-        setTimeout(function () {
-          if (!done && hasAdContent()) finish("filled", "content detected (timeout fallback)");
-          else if (!done) finish("unfilled", "no load/error event within timeout");
-        }, 12000);
-      })();
-    </script>
-    <script
-      type="text/javascript"
-      src="${src}"
-      onload="window.__RDS_ADSTERRA_ONLOAD && window.__RDS_ADSTERRA_ONLOAD()"
-      onerror="window.__RDS_ADSTERRA_ONERROR && window.__RDS_ADSTERRA_ONERROR()"
-    ></script>
-  </body>
-</html>`;
+  function buildAdsterraFrameUrl({ key, width, height, token }) {
+    const url = new URL("./adsterra-frame.html", window.location.href);
+    url.searchParams.set("key", String(key || "").trim());
+    url.searchParams.set("w", String(Number(width) || 0));
+    url.searchParams.set("h", String(Number(height) || 0));
+    url.searchParams.set("token", String(token || ""));
+    return url.toString();
   }
 
   function getAdsterraSize(el) {
@@ -453,10 +361,9 @@
     iframe.height = String(height);
     iframe.setAttribute("frameborder", "0");
     iframe.setAttribute("scrolling", "no");
-    iframe.setAttribute(
-      "sandbox",
-      "allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation",
-    );
+    // Use a real same-origin iframe URL instead of srcdoc so Adsterra sees a normal page referrer
+    // (some Adsterra setups reject srcdoc/about:srcdoc referrers and return blank/403).
+    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
     iframe.style.border = "0";
     iframe.style.overflow = "hidden";
     iframe.style.display = "block";
@@ -467,11 +374,10 @@
     ensureAdsterraMessageListener();
     const token = `${Math.random().toString(36).slice(2)}_${Date.now()}`;
     iframe.dataset.rdsToken = token;
-    iframe.srcdoc = buildAdsterraIframeSrcDoc({ key, width, height }).replaceAll("__RDS_TOKEN__", token);
-
-    slotEl.appendChild(iframe);
+    iframe.src = buildAdsterraFrameUrl({ key, width, height, token });
 
     // Avoid showing blank placeholders: only unhide once the iframe reports it actually rendered content.
+    // Important: register the handler BEFORE attaching the iframe, otherwise fast postMessage events can be dropped.
     if (container instanceof HTMLElement) {
       container.hidden = true;
 
@@ -494,6 +400,8 @@
         debugLog("Adsterra stayed hidden: no postMessage received within timeout.");
       }, 13000);
     }
+
+    slotEl.appendChild(iframe);
   }
 
   function initAdsterra(providers) {
