@@ -9,7 +9,7 @@
       content="Romania Din Suflet — știri și povești, într-un ton neutru, pentru cititori din toată țara."
     />
     <!-- Ads provider(s): "adsense", "adsterra", or "adsense,adsterra" -->
-    <meta name="ads-provider" content="adsense" />
+    <meta name="ads-provider" content="adsense,adsterra" />
     <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
     <!-- Official AdSense account meta (recommended by Google) -->
@@ -94,51 +94,16 @@
       >
         <div class="container">
           <div class="ad-label" aria-hidden="true">Publicitate</div>
-          <div class="ad-slot">
-            <script type="text/javascript">
-              (() => {
-                const providers = (
-                  document.querySelector('meta[name="ads-provider"]')?.content || ""
-                )
-                  .split(",")
-                  .map((s) => s.trim().toLowerCase())
-                  .filter(Boolean);
-                const adsterraEnabled = providers.includes("adsterra");
-                if (!adsterraEnabled) return;
-
-                const key = (
-                  document.querySelector('meta[name="adsterra-home-top-key"]')?.content || ""
-                ).trim();
-                if (!/^[a-z0-9]+$/i.test(key) || /^replace_me$/i.test(key)) return;
-
-                const section = document.querySelector('[data-ad="home_top_adsterra"]');
-                if (section) section.hidden = false;
-
-                const isMobile =
-                  window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
-                const width = isMobile ? 320 : 728;
-                const height = isMobile ? 50 : 90;
-
-                // Adsterra banner script expects a global atOptions.
-                window.atOptions = {
-                  key,
-                  format: "iframe",
-                  height,
-                  width,
-                  params: {},
-                };
-
-                // Keep it parse-time to avoid issues with older ad scripts.
-                document.write(
-                  '<scr' +
-                    'ipt type="text/javascript" src="https://www.highperformanceformat.com/' +
-                    key +
-                    '/invoke.js"></scr' +
-                    "ipt>",
-                );
-              })();
-            </script>
-          </div>
+          <div
+            class="ad-slot adsterra-slot"
+            data-adsterra-key-meta="adsterra-home-top-key"
+            data-adsterra-config-field="homeTopKeyDesktop"
+            data-adsterra-config-field-mobile="homeTopKeyMobile"
+            data-adsterra-width="300"
+            data-adsterra-height="250"
+            data-adsterra-width-mobile="320"
+            data-adsterra-height-mobile="50"
+          ></div>
         </div>
       </section>
 
