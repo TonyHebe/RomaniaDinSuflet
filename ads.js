@@ -469,9 +469,8 @@
     iframe.dataset.rdsToken = token;
     iframe.srcdoc = buildAdsterraIframeSrcDoc({ key, width, height }).replaceAll("__RDS_TOKEN__", token);
 
-    slotEl.appendChild(iframe);
-
     // Avoid showing blank placeholders: only unhide once the iframe reports it actually rendered content.
+    // Important: register the handler BEFORE attaching the iframe, otherwise fast postMessage events can be dropped.
     if (container instanceof HTMLElement) {
       container.hidden = true;
 
@@ -494,6 +493,8 @@
         debugLog("Adsterra stayed hidden: no postMessage received within timeout.");
       }, 13000);
     }
+
+    slotEl.appendChild(iframe);
   }
 
   function initAdsterra(providers) {
