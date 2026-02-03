@@ -55,6 +55,12 @@
             <p class="section-muted" id="article-meta"></p>
           </div>
 
+          <!-- Adsterra -->
+          <div class="adsterra-inline" aria-label="Publicitate">
+            <div class="ad-label" aria-hidden="true">Publicitate</div>
+            <div class="adsterra-slot" id="adsterra-article-300x250"></div>
+          </div>
+
           <!-- AdSense: fill data-ad-slot with your real slot id to enable -->
           <div class="ad-section" data-ad="article_top" aria-label="Publicitate" hidden>
             <div class="ad-label" aria-hidden="true">Publicitate</div>
@@ -115,6 +121,12 @@
     </footer>
 
     <script src="./ads.js" defer></script>
+    <script src="./adsterra.js" defer></script>
+
+    <!-- Sticky Adsterra (320x50) -->
+    <div class="adsterra-sticky" aria-label="Publicitate">
+      <div id="adsterra-sticky-320x50"></div>
+    </div>
     <script>
       (() => {
         const yearEl = document.getElementById("year");
@@ -262,6 +274,14 @@
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
             maybeInitAds();
+            const initAdsterra = window.__RDS_INIT_ADSTERRA;
+            if (typeof initAdsterra === "function") {
+              try {
+                initAdsterra();
+              } catch {
+                // Ignore (ad blockers, CSP, etc). Site should still function.
+              }
+            }
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
