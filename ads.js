@@ -320,7 +320,7 @@
     return String(key || "").trim();
   }
 
-  function renderAdsterraIntoSlot(slotEl, { key, width, height }) {
+  function renderAdsterraIntoSlot(slotEl, { key, width, height, container }) {
     slotEl.innerHTML = "";
 
     const iframe = document.createElement("iframe");
@@ -342,6 +342,36 @@
     iframe.srcdoc = buildAdsterraIframeSrcDoc({ key, width, height });
 
     slotEl.appendChild(iframe);
+
+    // Avoid showing blank placeholders: only unhide once the iframe loads.
+    if (container instanceof HTMLElement) {
+      container.hidden = true;
+
+      const onLoad = () => {
+        container.hidden = false;
+        iframe.removeEventListener("load", onLoad);
+        iframe.removeEventListener("error", onError);
+      };
+      const onError = () => {
+        debugLog("Adsterra iframe failed to load (blocked/CSP/network).");
+        container.hidden = true;
+        iframe.removeEventListener("load", onLoad);
+        iframe.removeEventListener("error", onError);
+      };
+      iframe.addEventListener("load", onLoad, { once: true });
+      iframe.addEventListener("error", onError, { once: true });
+
+      // Last resort: if it didn't load, keep it hidden.
+      window.setTimeout(() => {
+        try {
+          // If the iframe never loaded, keep hidden.
+          // (Some blockers prevent load/error; this keeps UI clean.)
+          if (container.hidden) return;
+        } catch {
+          // ignore
+        }
+      }, 12000);
+    }
   }
 
   function initAdsterra(providers) {
@@ -363,13 +393,15 @@
         if (slot.dataset.adsterraRendered === "true") continue;
 
         const key = getAdsterraKeyForSlot({ slot, cfg, isMobile });
-        if (!isRealAdsterraKey(key)) continue;
+        if (!isRealAdsterraKey(key)) {
+          debugLog("Adsterra: missing/invalid key for slot.", slot);
+          continue;
+        }
 
-        const container = slot.closest("[data-ad]");
-        if (container instanceof HTMLElement) container.hidden = false;
+        const container = getAdContainer(slot);
 
         const { width, height } = getAdsterraSize(slot);
-        renderAdsterraIntoSlot(slot, { key, width, height });
+        renderAdsterraIntoSlot(slot, { key, width, height, container });
         slot.dataset.adsterraRendered = "true";
       }
     })().catch(() => {
