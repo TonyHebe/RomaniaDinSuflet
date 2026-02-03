@@ -1,4 +1,8 @@
 (() => {
+  // Bump this string to quickly confirm which ads.js is deployed in production.
+  // (Useful when CDN/Vercel is serving an older cached build.)
+  const __RDS_ADS_BUILD = "2026-02-03-adsterra-frame";
+
   function isDebug() {
     try {
       const url = new URL(window.location.href);
@@ -19,6 +23,7 @@
     // eslint-disable-next-line no-console
     console.log("[ads]", ...args);
   }
+  debugLog("build", __RDS_ADS_BUILD);
 
   function getProvider() {
     const el = document.querySelector('meta[name="ads-provider"]');
@@ -268,7 +273,8 @@
   }
 
   function buildAdsterraFrameUrl({ key, width, height, token }) {
-    const url = new URL("./adsterra-frame.html", window.location.href);
+    // Use an absolute path so it resolves consistently from any page URL.
+    const url = new URL("/adsterra-frame.html", window.location.origin);
     url.searchParams.set("key", String(key || "").trim());
     url.searchParams.set("w", String(Number(width) || 0));
     url.searchParams.set("h", String(Number(height) || 0));
