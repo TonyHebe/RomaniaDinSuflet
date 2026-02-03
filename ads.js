@@ -275,8 +275,14 @@
         function send(status, detail) {
           try {
             parent.postMessage(
-              { source: "rds_ads", type: "adsterra", token: TOKEN, status: String(status), detail: String(detail || "") },
-              "*",
+              {
+                source: "rds_ads",
+                type: "adsterra",
+                token: TOKEN,
+                status: String(status),
+                detail: String(detail || ""),
+              },
+              "*"
             );
           } catch (e) {
             // ignore
@@ -306,7 +312,7 @@
           format: "iframe",
           height: ${h},
           width: ${w},
-          params: {},
+          params: {}
         };
 
         var s = document.createElement("script");
