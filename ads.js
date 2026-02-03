@@ -69,16 +69,20 @@
   async function fetchAdConfig() {
     if (__RDS_AD_CONFIG_PROMISE) return __RDS_AD_CONFIG_PROMISE;
     __RDS_AD_CONFIG_PROMISE = (async () => {
-      const res = await fetch("/api/ads-config", {
-        headers: { Accept: "application/json" },
-      });
-      const contentType = String(res.headers.get("content-type") || "").toLowerCase();
-      const data = contentType.includes("application/json")
-        ? await res.json().catch(() => null)
-        : null;
-      if (!res.ok) return null;
-      if (!data || data.ok !== true) return null;
-      return data;
+      const tryFetch = async (path) => {
+        const res = await fetch(path, { headers: { Accept: "application/json" } });
+        const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+        const data = contentType.includes("application/json")
+          ? await res.json().catch(() => null)
+          : null;
+        if (!res.ok) return null;
+        if (!data || data.ok !== true) return null;
+        return data;
+      };
+
+      // Some blockers block URLs containing "ads". Try the canonical endpoint first,
+      // then a neutral alias.
+      return (await tryFetch("/api/ads-config")) || (await tryFetch("/api/public-config"));
     })().catch(() => null);
     return __RDS_AD_CONFIG_PROMISE;
   }
