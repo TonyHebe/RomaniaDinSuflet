@@ -70,14 +70,25 @@
     if (__RDS_AD_CONFIG_PROMISE) return __RDS_AD_CONFIG_PROMISE;
     __RDS_AD_CONFIG_PROMISE = (async () => {
       const tryFetch = async (path) => {
-        const res = await fetch(path, { headers: { Accept: "application/json" } });
-        const contentType = String(res.headers.get("content-type") || "").toLowerCase();
-        const data = contentType.includes("application/json")
-          ? await res.json().catch(() => null)
-          : null;
-        if (!res.ok) return null;
-        if (!data || data.ok !== true) return null;
-        return data;
+        try {
+          const res = await fetch(path, { headers: { Accept: "application/json" } });
+          const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+          const data = contentType.includes("application/json")
+            ? await res.json().catch(() => null)
+            : null;
+          if (!res.ok) {
+            debugLog("Config fetch failed:", path, "status=", res.status);
+            return null;
+          }
+          if (!data || data.ok !== true) {
+            debugLog("Config fetch invalid payload:", path);
+            return null;
+          }
+          return data;
+        } catch (e) {
+          debugLog("Config fetch error:", path, String(e?.message || e));
+          return null;
+        }
       };
 
       // Some blockers block URLs containing "ads". Try the canonical endpoint first,
@@ -498,6 +509,15 @@
     (async () => {
       const cfg = await fetchAdConfig();
       const isMobile = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+      if (__ADS_DEBUG) {
+        const a = cfg?.adsterra || {};
+        debugLog("Adsterra config loaded:", {
+          hasHomeTopKeyDesktop: Boolean(a?.homeTopKeyDesktop),
+          hasHomeTopKeyMobile: Boolean(a?.homeTopKeyMobile),
+          hasArticleTopKeyDesktop: Boolean(a?.articleTopKeyDesktop),
+          hasArticleTopKeyMobile: Boolean(a?.articleTopKeyMobile),
+        });
+      }
 
       for (const slot of slots) {
         if (!(slot instanceof HTMLElement)) continue;
@@ -507,6 +527,10 @@
         if (!isRealAdsterraKey(key)) {
           debugLog("Adsterra: missing/invalid key for slot.", slot);
           continue;
+        }
+        if (__ADS_DEBUG) {
+          const masked = key.length > 10 ? `${key.slice(0, 4)}…${key.slice(-4)}` : `${key.slice(0, 2)}…`;
+          debugLog("Adsterra: using key", masked, "isMobile=", Boolean(isMobile));
         }
 
         const container = getAdContainer(slot);
