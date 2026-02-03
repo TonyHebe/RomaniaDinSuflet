@@ -1,4 +1,25 @@
 (() => {
+  function isDebug() {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("ads_debug") === "1") return true;
+    } catch {
+      // ignore
+    }
+    try {
+      return window.localStorage?.getItem("ads_debug") === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  const __ADS_DEBUG = isDebug();
+  function debugLog(...args) {
+    if (!__ADS_DEBUG) return;
+    // eslint-disable-next-line no-console
+    console.log("[ads]", ...args);
+  }
+
   function getProvider() {
     const el = document.querySelector('meta[name="ads-provider"]');
     const raw = el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
@@ -19,6 +40,14 @@
     const official = getMetaContent("google-adsense-account");
     if (official) return official;
     return getMetaContent("adsense-client");
+  }
+
+  function parseSlotList(raw) {
+    return String(raw || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .filter((s) => /^\d{6,}$/.test(s));
   }
 
   function isRealClientId(client) {
@@ -65,14 +94,67 @@
     s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(
       client,
     )}`;
+    s.addEventListener("error", () => {
+      debugLog("AdSense script failed to load (blocked/CSP/network).");
+    });
     document.head.appendChild(s);
   }
 
-  function unhideAdContainers(adInsElements) {
-    for (const ins of adInsElements) {
-      const container = ins.closest("[data-ad]");
-      if (container instanceof HTMLElement) container.hidden = false;
+  function getAdContainer(el) {
+    const c = el?.closest?.("[data-ad]");
+    return c instanceof HTMLElement ? c : null;
+  }
+
+  function isAdSenseFilled(ins) {
+    const status = String(ins.getAttribute("data-adsbygoogle-status") || "").toLowerCase();
+    if (status === "unfilled") return false;
+    if (status) return true;
+    // Fallback: some implementations don't set status but still insert an iframe.
+    return Boolean(ins.querySelector("iframe"));
+  }
+
+  function watchAndRevealAdSense(ins) {
+    const container = getAdContainer(ins);
+    if (!container) return;
+
+    // Hide until we actually detect a filled unit to avoid showing blank placeholders.
+    container.hidden = true;
+
+    if (isAdSenseFilled(ins)) {
+      container.hidden = false;
+      return;
     }
+
+    const revealOrHide = () => {
+      const status = String(ins.getAttribute("data-adsbygoogle-status") || "").toLowerCase();
+      if (status === "unfilled") {
+        container.hidden = true;
+        return true;
+      }
+      if (isAdSenseFilled(ins)) {
+        container.hidden = false;
+        return true;
+      }
+      return false;
+    };
+
+    const obs = new MutationObserver(() => {
+      if (revealOrHide()) obs.disconnect();
+    });
+    try {
+      obs.observe(ins, { attributes: true, childList: true, subtree: true });
+    } catch {
+      // ignore
+    }
+
+    // Last resort: after a grace period, keep it hidden if unfilled.
+    window.setTimeout(() => {
+      try {
+        revealOrHide();
+      } finally {
+        obs.disconnect();
+      }
+    }, 12000);
   }
 
   function pushAds(adInsElements) {
@@ -113,25 +195,56 @@
     if (!adsenseEnabled) return;
 
     const client = getClientId();
-    if (!isRealClientId(client)) return;
+    if (!isRealClientId(client)) {
+      debugLog("AdSense disabled: missing/invalid ca-pub client id.");
+      return;
+    }
 
     // Ensure the script is present even if we have no manual ad slots yet.
     ensureAdSenseScript(client);
     initAutoAds(client);
 
     const allIns = Array.from(document.querySelectorAll("ins.adsbygoogle"));
+    const inFeedSlots = parseSlotList(getMetaContent("adsense-infeed-slots"));
+    const inArticleSlots = parseSlotList(getMetaContent("adsense-article-incontent-slots"));
+
+    // If the fixed slots still have REPLACE_ME, try to infer from the configured slot lists.
+    for (const el of allIns) {
+      if (!(el instanceof HTMLElement)) continue;
+      const currentSlot = (el.getAttribute("data-ad-slot") || "").trim();
+      if (isRealSlotId(currentSlot)) continue;
+
+      const container = getAdContainer(el);
+      const placement = String(container?.getAttribute("data-ad") || "").toLowerCase();
+      const fallback =
+        placement.includes("home") || placement.includes("stiri")
+          ? inFeedSlots[0]
+          : placement.includes("article")
+            ? inArticleSlots[0]
+            : "";
+
+      if (fallback && isRealSlotId(String(fallback))) {
+        el.setAttribute("data-ad-slot", String(fallback));
+        debugLog("Inferred AdSense slot id for", placement || "unknown", "=>", String(fallback));
+      }
+    }
+
     const eligible = allIns.filter((el) => {
       if (!(el instanceof HTMLElement)) return false;
       const slot = (el.getAttribute("data-ad-slot") || "").trim();
       return isRealSlotId(slot);
     });
 
-    if (!eligible.length) return;
+    if (!eligible.length) {
+      debugLog("AdSense: no eligible <ins> slots found (missing numeric data-ad-slot).");
+      return;
+    }
 
     // Ensure client attribute is correct for all eligible ad units.
     for (const ins of eligible) ins.setAttribute("data-ad-client", client);
 
-    unhideAdContainers(eligible);
+    // Keep placeholders hidden until they actually fill.
+    for (const ins of eligible) watchAndRevealAdSense(ins);
     pushAds(eligible);
   }
 
