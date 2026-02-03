@@ -70,14 +70,25 @@
     if (__RDS_AD_CONFIG_PROMISE) return __RDS_AD_CONFIG_PROMISE;
     __RDS_AD_CONFIG_PROMISE = (async () => {
       const tryFetch = async (path) => {
-        const res = await fetch(path, { headers: { Accept: "application/json" } });
-        const contentType = String(res.headers.get("content-type") || "").toLowerCase();
-        const data = contentType.includes("application/json")
-          ? await res.json().catch(() => null)
-          : null;
-        if (!res.ok) return null;
-        if (!data || data.ok !== true) return null;
-        return data;
+        try {
+          const res = await fetch(path, { headers: { Accept: "application/json" } });
+          const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+          const data = contentType.includes("application/json")
+            ? await res.json().catch(() => null)
+            : null;
+          if (!res.ok) {
+            debugLog("Config fetch failed:", path, "status=", res.status);
+            return null;
+          }
+          if (!data || data.ok !== true) {
+            debugLog("Config fetch invalid payload:", path);
+            return null;
+          }
+          return data;
+        } catch (e) {
+          debugLog("Config fetch error:", path, String(e?.message || e));
+          return null;
+        }
       };
 
       // Some blockers block URLs containing "ads". Try the canonical endpoint first,
@@ -268,15 +279,91 @@
   </head>
   <body style="margin:0;padding:0;overflow:hidden;">
     <script type="text/javascript">
-      window.atOptions = {
-        key: ${keyStr},
-        format: "iframe",
-        height: ${h},
-        width: ${w},
-        params: {}
-      };
+      (function () {
+        // NOTE: this document is sandboxed WITHOUT allow-same-origin, so we cannot be inspected by the parent.
+        // Use postMessage to notify the parent when we actually see ad content.
+        var TOKEN = "__RDS_TOKEN__";
+        function send(status, detail) {
+          try {
+            parent.postMessage(
+              {
+                source: "rds_ads",
+                type: "adsterra",
+                token: TOKEN,
+                status: String(status),
+                detail: String(detail || ""),
+              },
+              "*"
+            );
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        function hasAdContent() {
+          try {
+            // Most Adsterra invoke scripts insert an iframe.
+            if (document.querySelector("iframe")) return true;
+            if (document.querySelector("img,object,embed")) return true;
+
+            // Fallback: any non-script element suggests something rendered.
+            var kids = document.body ? Array.prototype.slice.call(document.body.children || []) : [];
+            for (var i = 0; i < kids.length; i += 1) {
+              var t = String(kids[i] && kids[i].tagName ? kids[i].tagName : "").toUpperCase();
+              if (t && t !== "SCRIPT" && t !== "STYLE") return true;
+            }
+          } catch (e) {
+            // ignore
+          }
+          return false;
+        }
+
+        window.atOptions = {
+          key: ${keyStr},
+          format: "iframe",
+          height: ${h},
+          width: ${w},
+          params: {}
+        };
+
+        var s = document.createElement("script");
+        s.type = "text/javascript";
+        s.src = "${src}";
+        s.async = true;
+
+        var done = false;
+        function finish(status, detail) {
+          if (done) return;
+          done = true;
+          send(status, detail);
+        }
+
+        s.onerror = function () {
+          finish("blocked", "invoke.js failed to load (blocked/CSP/network)");
+        };
+        s.onload = function () {
+          // Poll for actual content for a short grace window.
+          var start = Date.now();
+          (function poll() {
+            if (hasAdContent()) return finish("filled", "content detected");
+            if (Date.now() - start > 9000) return finish("unfilled", "no content detected after grace window");
+            setTimeout(poll, 250);
+          })();
+        };
+
+        try {
+          document.body.appendChild(s);
+        } catch (e) {
+          finish("blocked", "failed to append invoke.js");
+        }
+
+        // Absolute fallback: if neither onload nor onerror fires, keep it hidden.
+        setTimeout(function () {
+          if (!done && hasAdContent()) finish("filled", "content detected (timeout fallback)");
+          else if (!done) finish("unfilled", "no load/error event within timeout");
+        }, 12000);
+      })();
     </script>
-    <script type="text/javascript" src="${src}"></script>
   </body>
 </html>`;
   }
@@ -324,6 +411,38 @@
     return String(key || "").trim();
   }
 
+  const __RDS_ADSTERRA_REVEAL_HANDLERS =
+    window.__RDS_ADSTERRA_REVEAL_HANDLERS instanceof Map
+      ? window.__RDS_ADSTERRA_REVEAL_HANDLERS
+      : new Map();
+  window.__RDS_ADSTERRA_REVEAL_HANDLERS = __RDS_ADSTERRA_REVEAL_HANDLERS;
+
+  function ensureAdsterraMessageListener() {
+    if (window.__RDS_ADSTERRA_MSG_LISTENER_INITED) return;
+    window.__RDS_ADSTERRA_MSG_LISTENER_INITED = true;
+
+    window.addEventListener("message", (ev) => {
+      const data = ev?.data;
+      if (!data || typeof data !== "object") return;
+      if (data.source !== "rds_ads" || data.type !== "adsterra") return;
+
+      const token = String(data.token || "");
+      if (!token) return;
+
+      const handler = __RDS_ADSTERRA_REVEAL_HANDLERS.get(token);
+      if (typeof handler !== "function") return;
+
+      try {
+        handler({
+          status: String(data.status || ""),
+          detail: String(data.detail || ""),
+        });
+      } finally {
+        __RDS_ADSTERRA_REVEAL_HANDLERS.delete(token);
+      }
+    });
+  }
+
   function renderAdsterraIntoSlot(slotEl, { key, width, height, container }) {
     slotEl.innerHTML = "";
 
@@ -343,38 +462,37 @@
     iframe.style.display = "block";
     iframe.style.width = `${width}px`;
     iframe.style.height = `${height}px`;
-    iframe.srcdoc = buildAdsterraIframeSrcDoc({ key, width, height });
+
+    // Use postMessage from the iframe to decide whether to reveal the container.
+    ensureAdsterraMessageListener();
+    const token = `${Math.random().toString(36).slice(2)}_${Date.now()}`;
+    iframe.dataset.rdsToken = token;
+    iframe.srcdoc = buildAdsterraIframeSrcDoc({ key, width, height }).replaceAll("__RDS_TOKEN__", token);
 
     slotEl.appendChild(iframe);
 
-    // Avoid showing blank placeholders: only unhide once the iframe loads.
+    // Avoid showing blank placeholders: only unhide once the iframe reports it actually rendered content.
     if (container instanceof HTMLElement) {
       container.hidden = true;
 
-      const onLoad = () => {
-        container.hidden = false;
-        iframe.removeEventListener("load", onLoad);
-        iframe.removeEventListener("error", onError);
-      };
-      const onError = () => {
-        debugLog("Adsterra iframe failed to load (blocked/CSP/network).");
-        container.hidden = true;
-        iframe.removeEventListener("load", onLoad);
-        iframe.removeEventListener("error", onError);
-      };
-      iframe.addEventListener("load", onLoad, { once: true });
-      iframe.addEventListener("error", onError, { once: true });
-
-      // Last resort: if it didn't load, keep it hidden.
-      window.setTimeout(() => {
-        try {
-          // If the iframe never loaded, keep hidden.
-          // (Some blockers prevent load/error; this keeps UI clean.)
-          if (container.hidden) return;
-        } catch {
-          // ignore
+      __RDS_ADSTERRA_REVEAL_HANDLERS.set(token, ({ status, detail }) => {
+        const s = String(status || "").toLowerCase();
+        if (s === "filled") {
+          container.hidden = false;
+          debugLog("Adsterra filled:", detail || "filled");
+        } else {
+          container.hidden = true;
+          debugLog("Adsterra stayed hidden:", s || "unknown", detail || "");
         }
-      }, 12000);
+      });
+
+      // If we never hear back (some blockers), keep hidden and cleanup.
+      window.setTimeout(() => {
+        if (!__RDS_ADSTERRA_REVEAL_HANDLERS.has(token)) return;
+        __RDS_ADSTERRA_REVEAL_HANDLERS.delete(token);
+        container.hidden = true;
+        debugLog("Adsterra stayed hidden: no postMessage received within timeout.");
+      }, 13000);
     }
   }
 
@@ -391,6 +509,15 @@
     (async () => {
       const cfg = await fetchAdConfig();
       const isMobile = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+      if (__ADS_DEBUG) {
+        const a = cfg?.adsterra || {};
+        debugLog("Adsterra config loaded:", {
+          hasHomeTopKeyDesktop: Boolean(a?.homeTopKeyDesktop),
+          hasHomeTopKeyMobile: Boolean(a?.homeTopKeyMobile),
+          hasArticleTopKeyDesktop: Boolean(a?.articleTopKeyDesktop),
+          hasArticleTopKeyMobile: Boolean(a?.articleTopKeyMobile),
+        });
+      }
 
       for (const slot of slots) {
         if (!(slot instanceof HTMLElement)) continue;
@@ -400,6 +527,10 @@
         if (!isRealAdsterraKey(key)) {
           debugLog("Adsterra: missing/invalid key for slot.", slot);
           continue;
+        }
+        if (__ADS_DEBUG) {
+          const masked = key.length > 10 ? `${key.slice(0, 4)}…${key.slice(-4)}` : `${key.slice(0, 2)}…`;
+          debugLog("Adsterra: using key", masked, "isMobile=", Boolean(isMobile));
         }
 
         const container = getAdContainer(slot);
