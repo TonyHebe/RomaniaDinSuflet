@@ -84,6 +84,7 @@
             debugLog("Config fetch invalid payload:", path);
             return null;
           }
+          debugLog("Config fetch ok:", path);
           return data;
         } catch (e) {
           debugLog("Config fetch error:", path, String(e?.message || e));
@@ -91,9 +92,12 @@
         }
       };
 
-      // Some blockers block URLs containing "ads". Try the canonical endpoint first,
-      // then a neutral alias.
-      return (await tryFetch("/api/ads-config")) || (await tryFetch("/api/public-config"));
+      // Some blockers block URLs containing "ads". Try a neutral endpoint first, then fall back.
+      return (
+        (await tryFetch("/api/config")) ||
+        (await tryFetch("/api/public-config")) ||
+        (await tryFetch("/api/ads-config"))
+      );
     })().catch(() => null);
     return __RDS_AD_CONFIG_PROMISE;
   }
@@ -280,7 +284,7 @@
   <body style="margin:0;padding:0;overflow:hidden;">
     <script type="text/javascript">
       (function () {
-        // NOTE: this document is sandboxed WITHOUT allow-same-origin, so we cannot be inspected by the parent.
+        // NOTE: this document is sandboxed WITHOUT allow-same-origin, so the parent cannot inspect it.
         // Use postMessage to notify the parent when we actually see ad content.
         var TOKEN = "__RDS_TOKEN__";
         function send(status, detail) {
@@ -293,7 +297,7 @@
                 status: String(status),
                 detail: String(detail || ""),
               },
-              "*"
+              "*",
             );
           } catch (e) {
             // ignore
@@ -318,19 +322,6 @@
           return false;
         }
 
-        window.atOptions = {
-          key: ${keyStr},
-          format: "iframe",
-          height: ${h},
-          width: ${w},
-          params: {}
-        };
-
-        var s = document.createElement("script");
-        s.type = "text/javascript";
-        s.src = "${src}";
-        s.async = true;
-
         var done = false;
         function finish(status, detail) {
           if (done) return;
@@ -338,10 +329,8 @@
           send(status, detail);
         }
 
-        s.onerror = function () {
-          finish("blocked", "invoke.js failed to load (blocked/CSP/network)");
-        };
-        s.onload = function () {
+        // Expose handlers for the <script onload/onerror> attributes below.
+        window.__RDS_ADSTERRA_ONLOAD = function () {
           // Poll for actual content for a short grace window.
           var start = Date.now();
           (function poll() {
@@ -350,12 +339,17 @@
             setTimeout(poll, 250);
           })();
         };
+        window.__RDS_ADSTERRA_ONERROR = function () {
+          finish("blocked", "invoke.js failed to load (blocked/CSP/network)");
+        };
 
-        try {
-          document.body.appendChild(s);
-        } catch (e) {
-          finish("blocked", "failed to append invoke.js");
-        }
+        window.atOptions = {
+          key: ${keyStr},
+          format: "iframe",
+          height: ${h},
+          width: ${w},
+          params: {},
+        };
 
         // Absolute fallback: if neither onload nor onerror fires, keep it hidden.
         setTimeout(function () {
@@ -364,6 +358,12 @@
         }, 12000);
       })();
     </script>
+    <script
+      type="text/javascript"
+      src="${src}"
+      onload="window.__RDS_ADSTERRA_ONLOAD && window.__RDS_ADSTERRA_ONLOAD()"
+      onerror="window.__RDS_ADSTERRA_ONERROR && window.__RDS_ADSTERRA_ONERROR()"
+    ></script>
   </body>
 </html>`;
   }
@@ -509,6 +509,11 @@
     (async () => {
       const cfg = await fetchAdConfig();
       const isMobile = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+      if (__ADS_DEBUG && !cfg) {
+        debugLog(
+          "Adsterra config not loaded: all config endpoints failed/blocked. (Keys must be set via meta or config endpoint must be reachable.)",
+        );
+      }
       if (__ADS_DEBUG) {
         const a = cfg?.adsterra || {};
         debugLog("Adsterra config loaded:", {
