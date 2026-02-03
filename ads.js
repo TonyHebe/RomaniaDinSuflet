@@ -181,6 +181,32 @@
     };
   }
 
+  function getAdsterraKeyForSlot({ slot, cfg, isMobile }) {
+    const metaAttr = isMobile ? "data-adsterra-key-meta-mobile" : "data-adsterra-key-meta";
+    const cfgAttr = isMobile
+      ? "data-adsterra-config-field-mobile"
+      : "data-adsterra-config-field";
+
+    const metaName = String(slot.getAttribute(metaAttr) || "").trim();
+    const cfgField = String(slot.getAttribute(cfgAttr) || "").trim();
+
+    // Fallback to non-mobile attributes if mobile-specific not provided.
+    const baseMetaName = String(slot.getAttribute("data-adsterra-key-meta") || "").trim();
+    const baseCfgField = String(slot.getAttribute("data-adsterra-config-field") || "").trim();
+
+    let key = metaName ? getMetaContent(metaName) : "";
+    if (!isRealAdsterraKey(key) && baseMetaName) key = getMetaContent(baseMetaName);
+
+    if (!isRealAdsterraKey(key) && cfg && cfgField) {
+      key = String(cfg?.adsterra?.[cfgField] || "").trim();
+    }
+    if (!isRealAdsterraKey(key) && cfg && baseCfgField) {
+      key = String(cfg?.adsterra?.[baseCfgField] || "").trim();
+    }
+
+    return String(key || "").trim();
+  }
+
   function renderAdsterraIntoSlot(slotEl, { key, width, height }) {
     slotEl.innerHTML = "";
 
@@ -217,18 +243,13 @@
     // Async flow: meta-first, otherwise try /api/ads-config (env-backed).
     (async () => {
       const cfg = await fetchAdConfig();
+      const isMobile = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
 
       for (const slot of slots) {
         if (!(slot instanceof HTMLElement)) continue;
         if (slot.dataset.adsterraRendered === "true") continue;
 
-        const keyMeta = String(slot.getAttribute("data-adsterra-key-meta") || "").trim();
-        const cfgField = String(slot.getAttribute("data-adsterra-config-field") || "").trim();
-
-        let key = keyMeta ? getMetaContent(keyMeta) : "";
-        if (!isRealAdsterraKey(key) && cfg && cfgField) {
-          key = String(cfg?.adsterra?.[cfgField] || "").trim();
-        }
+        const key = getAdsterraKeyForSlot({ slot, cfg, isMobile });
         if (!isRealAdsterraKey(key)) continue;
 
         const container = slot.closest("[data-ad]");

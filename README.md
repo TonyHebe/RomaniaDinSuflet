@@ -162,13 +162,17 @@ If `adsense` is not included, `ads.js` will **not** initialize AdSense.
   - `article.html`: `meta[name="adsterra-article-top-key"]`
 - **Option B (recommended: Vercel env vars)**:
   - `ADSTERRA_HOME_TOP_KEY`
+  - `ADSTERRA_HOME_TOP_KEY_DESKTOP` (optional)
+  - `ADSTERRA_HOME_TOP_KEY_MOBILE` (optional)
   - `ADSTERRA_ARTICLE_TOP_KEY`
+  - `ADSTERRA_ARTICLE_TOP_KEY_DESKTOP` (optional)
+  - `ADSTERRA_ARTICLE_TOP_KEY_MOBILE` (optional)
   - The client will fetch `/api/ads-config` and render the banners if the meta keys are not set.
 
 Notes:
 
 - This implementation uses Adsterra’s standard banner loader from `www.highperformanceformat.com/<KEY>/invoke.js`.
-- The banner size switches automatically between **728×90** (desktop) and **320×50** (mobile).
+- The banner size switches automatically between **300×250** (desktop) and **320×50** (mobile) by default.
 - Banners are rendered inside a sandboxed iframe so ad scripts cannot break the main page.
 - Adsterra is only wired for the **fixed** placements above; the dynamic in-feed / in-article insertion logic remains AdSense-only.
 
