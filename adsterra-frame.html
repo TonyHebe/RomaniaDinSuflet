@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ad</title>
+    <title>Adsterra Frame</title>
     <style>
       html,
       body {
@@ -12,11 +12,31 @@
         overflow: hidden;
         background: transparent;
       }
+      /* Debug panel: visible by default, hidden when embedded. */
+      #rds-debug {
+        position: fixed;
+        inset: 0;
+        box-sizing: border-box;
+        padding: 10px 12px;
+        font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        color: #111;
+        background: #fff;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #rds-debug small {
+        opacity: 0.7;
+      }
     </style>
   </head>
   <body>
+    <pre id="rds-debug">Loading ad frame…</pre>
     <script>
       (function () {
+        var BUILD = "2026-02-03-adsterra-frame-v2";
+
         function qs(name) {
           try {
             return new URL(window.location.href).searchParams.get(name) || "";
@@ -29,6 +49,44 @@
         var W = parseInt(String(qs("w") || "0"), 10);
         var H = parseInt(String(qs("h") || "0"), 10);
         var TOKEN = String(qs("token") || "").trim();
+        var FORCE_DEBUG = String(qs("debug") || "").trim() === "1" || String(qs("ads_debug") || "").trim() === "1";
+
+        var debugEl = document.getElementById("rds-debug");
+        function setDebugVisible(visible) {
+          try {
+            if (!debugEl) return;
+            debugEl.style.display = visible ? "block" : "none";
+          } catch {
+            // ignore
+          }
+        }
+        function debug(line) {
+          try {
+            if (!debugEl) return;
+            debugEl.textContent = String(debugEl.textContent || "") + "\n" + String(line || "");
+          } catch {
+            // ignore
+          }
+        }
+
+        var embedded = false;
+        try {
+          embedded = window.top !== window.self;
+        } catch {
+          embedded = true;
+        }
+        // If embedded in the real ad slot, hide debug UI to avoid any flash.
+        // When opened directly, keep it visible (or force with ?debug=1).
+        setDebugVisible(!embedded || FORCE_DEBUG);
+        if (!embedded || FORCE_DEBUG) {
+          debug("RomaniaDinSuflet Adsterra frame");
+          debug("build=" + BUILD);
+          debug("embedded=" + String(embedded));
+          debug("key=" + (KEY ? KEY.slice(0, 4) + "…" + KEY.slice(-4) : "(missing)"));
+          debug("w=" + String(W) + " h=" + String(H));
+          debug("token=" + (TOKEN ? TOKEN : "(missing)"));
+          debug("");
+        }
 
         function send(status, detail) {
           try {
@@ -54,7 +112,10 @@
             var kids = document.body ? Array.prototype.slice.call(document.body.children || []) : [];
             for (var i = 0; i < kids.length; i += 1) {
               var t = String(kids[i] && kids[i].tagName ? kids[i].tagName : "").toUpperCase();
-              if (t && t !== "SCRIPT" && t !== "STYLE") return true;
+              if (!t || t === "SCRIPT" || t === "STYLE") continue;
+              // Ignore our own debug overlay.
+              if (kids[i] && kids[i].id === "rds-debug") continue;
+              return true;
             }
           } catch {
             // ignore
@@ -63,11 +124,17 @@
         }
 
         if (!TOKEN) {
-          send("unfilled", "missing token");
-          return;
+          // Token is required for embedded mode so the parent can match the response.
+          if (embedded) {
+            send("unfilled", "missing token");
+            return;
+          }
+          // If opened directly, allow running without a token for easier diagnostics.
+          if (!embedded || FORCE_DEBUG) debug("note: missing token (ok for direct-open diagnostics)");
         }
         if (!KEY || /^replace_me$/i.test(KEY)) {
           send("unfilled", "missing/invalid key");
+          if (!embedded || FORCE_DEBUG) debug("status=unfilled detail=missing/invalid key");
           return;
         }
         if (!(W > 0 && H > 0)) {
@@ -81,6 +148,7 @@
           if (done) return;
           done = true;
           send(status, detail);
+          if (!embedded || FORCE_DEBUG) debug("status=" + String(status) + (detail ? " detail=" + String(detail) : ""));
         }
 
         window.atOptions = {
@@ -96,6 +164,7 @@
         s.type = "text/javascript";
         s.src = src;
         s.onload = function () {
+          if (!embedded || FORCE_DEBUG) debug("invoke.js loaded: " + src);
           var start = Date.now();
           (function poll() {
             if (hasAdContent()) return finish("filled", "content detected");
@@ -104,6 +173,7 @@
           })();
         };
         s.onerror = function () {
+          if (!embedded || FORCE_DEBUG) debug("invoke.js failed to load: " + src);
           finish("blocked", "invoke.js failed to load (blocked/CSP/network)");
         };
         document.body.appendChild(s);
