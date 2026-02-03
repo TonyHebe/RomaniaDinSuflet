@@ -84,6 +84,7 @@
             debugLog("Config fetch invalid payload:", path);
             return null;
           }
+          debugLog("Config fetch ok:", path);
           return data;
         } catch (e) {
           debugLog("Config fetch error:", path, String(e?.message || e));
@@ -508,6 +509,11 @@
     (async () => {
       const cfg = await fetchAdConfig();
       const isMobile = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+      if (__ADS_DEBUG && !cfg) {
+        debugLog(
+          "Adsterra config not loaded: all config endpoints failed/blocked. (Keys must be set via meta or config endpoint must be reachable.)",
+        );
+      }
       if (__ADS_DEBUG) {
         const a = cfg?.adsterra || {};
         debugLog("Adsterra config loaded:", {
