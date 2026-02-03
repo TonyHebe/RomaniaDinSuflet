@@ -362,7 +362,11 @@
 
     const iframe = document.createElement("iframe");
     iframe.title = "Publicitate";
-    iframe.loading = "lazy";
+    // Important: do NOT lazy-load here.
+    // These containers start `hidden` and only unhide after the iframe reports "filled".
+    // With `loading="lazy"`, some browsers won't load the iframe while hidden/offscreen,
+    // causing a deadlock (never loads -> never posts message -> never reveals).
+    iframe.loading = "eager";
     iframe.width = String(width);
     iframe.height = String(height);
     iframe.setAttribute("frameborder", "0");
@@ -380,10 +384,10 @@
     ensureAdsterraMessageListener();
     const token = `${Math.random().toString(36).slice(2)}_${Date.now()}`;
     iframe.dataset.rdsToken = token;
-    iframe.src = buildAdsterraFrameUrl({ key, width, height, token });
 
     // Avoid showing blank placeholders: only unhide once the iframe reports it actually rendered content.
-    // Important: register the handler BEFORE attaching the iframe, otherwise fast postMessage events can be dropped.
+    // Important: register the handler BEFORE setting iframe.src (and before attaching),
+    // otherwise fast postMessage events can be dropped.
     if (container instanceof HTMLElement) {
       container.hidden = true;
 
@@ -407,6 +411,7 @@
       }, 13000);
     }
 
+    iframe.src = buildAdsterraFrameUrl({ key, width, height, token });
     slotEl.appendChild(iframe);
   }
 
