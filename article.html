@@ -16,6 +16,11 @@
     <meta name="description" content="Articol — Romania Din Suflet" />
     <!-- Ads provider(s): "ezoic" (preferred) or "adsense" -->
     <meta name="ads-provider" content="ezoic" />
+    <!-- Ezoic placement IDs (set numeric IDs from Ezoic dashboard) -->
+    <meta name="ezoic-article-top-id" content="REPLACE_ME" />
+    <meta name="ezoic-article-incontent-ids" content="REPLACE_ME" />
+    <meta name="ezoic-article-incontent-every" content="3" />
+    <meta name="ezoic-article-incontent-start" content="2" />
     <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
     <!-- Official AdSense account meta (recommended by Google) -->
@@ -62,17 +67,9 @@
             <p class="section-muted" id="article-meta"></p>
           </div>
 
-          <!-- AdSense: fill data-ad-slot with your real slot id to enable -->
-          <div class="ad-section" data-ad="article_top" aria-label="Publicitate" hidden>
+          <div class="ad-section" data-ad="article_top" aria-label="Publicitate">
             <div class="ad-label" aria-hidden="true">Publicitate</div>
-            <ins
-              class="adsbygoogle ad-slot"
-              style="display: block"
-              data-ad-client="ca-pub-REPLACE_ME"
-              data-ad-slot="REPLACE_ME"
-              data-ad-format="auto"
-              data-full-width-responsive="true"
-            ></ins>
+            <div data-ezoic-id-meta="ezoic-article-top-id" hidden></div>
           </div>
 
           <img
@@ -101,7 +98,6 @@
       </div>
     </footer>
 
-    <script src="./ads.js" defer></script>
     <script>
       (() => {
         const yearEl = document.getElementById("year");
@@ -136,48 +132,42 @@
         }
 
         function getInContentAdConfig() {
-          const slotsRaw = getMetaContent("adsense-article-incontent-slots");
-          const everyRaw = getMetaContent("adsense-article-incontent-every");
-          const startRaw = getMetaContent("adsense-article-incontent-start");
+          const idsRaw = getMetaContent("ezoic-article-incontent-ids");
+          const everyRaw = getMetaContent("ezoic-article-incontent-every");
+          const startRaw = getMetaContent("ezoic-article-incontent-start");
 
-          const slots = slotsRaw
+          const ids = idsRaw
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean)
-            .filter((s) => /^\d{6,}$/.test(s));
+            .map((s) => Number.parseInt(s, 10))
+            .filter((n) => Number.isFinite(n) && n > 0);
 
           const every = Number.parseInt(String(everyRaw || "3"), 10);
           const start = Number.parseInt(String(startRaw || "2"), 10);
 
           return {
-            slots,
+            ids,
             every: Number.isFinite(every) && every > 0 ? every : 3,
             start: Number.isFinite(start) && start > 0 ? start : 2,
           };
         }
 
-        function renderInContentAd({ slot }) {
-          // Container is hidden by default; ads.js will unhide when properly configured.
+        function renderInContentAd({ placementId }) {
+          // Hidden by default; ezoic-placements.js will unhide once a valid placement id is set.
           return `
-            <div class="ad-section ad-incontent" data-ad="article_incontent" aria-label="Publicitate" hidden>
+            <div class="ad-section ad-incontent" data-ad="article_incontent" aria-label="Publicitate">
               <div class="ad-label" aria-hidden="true">Publicitate</div>
-              <ins
-                class="adsbygoogle ad-slot"
-                style="display: block"
-                data-ad-client="ca-pub-REPLACE_ME"
-                data-ad-slot="${escapeHtml(String(slot))}"
-                data-ad-format="auto"
-                data-full-width-responsive="true"
-              ></ins>
+              <div data-ezoic-placement-id="${escapeHtml(String(placementId))}" hidden></div>
             </div>
           `;
         }
 
         function maybeInitAds() {
-          const fn = window.__RDS_INIT_ADS;
+          const fn = window.__RDS_EZOIC_SHOW_ADS;
           if (typeof fn === "function") {
             try {
-              fn();
+              fn(document);
             } catch {
               // Ignore (ad blockers, CSP, etc). Site should still function.
             }
@@ -230,7 +220,7 @@
               .map((p) => p.trim())
               .filter(Boolean);
 
-            const { slots, every, start } = getInContentAdConfig();
+            const { ids, every, start } = getInContentAdConfig();
             const parts = [];
             let slotIndex = 0;
 
@@ -238,12 +228,12 @@
               parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
 
               const paragraphNumber = i + 1;
-              const canInsert = slots.length > 0 && paragraphNumber >= start && i !== rawParagraphs.length - 1;
+              const canInsert = ids.length > 0 && paragraphNumber >= start && i !== rawParagraphs.length - 1;
               const shouldInsert = canInsert && (paragraphNumber - start + 1) % every === 0;
               if (shouldInsert) {
-                const slot = slots[slotIndex % slots.length];
+                const placementId = ids[slotIndex % ids.length];
                 slotIndex += 1;
-                parts.push(renderInContentAd({ slot }));
+                parts.push(renderInContentAd({ placementId }));
               }
             }
 
@@ -259,6 +249,7 @@
         load();
       })();
     </script>
+    <script src="./ezoic-placements.js" defer></script>
   </body>
 </html>
 
