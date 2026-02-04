@@ -2,6 +2,7 @@
   "version": 2,
   "crons": [],
   "rewrites": [
+    { "source": "/ads.txt", "destination": "/api/ads-txt" },
     { "source": "/s/:slug", "destination": "/api/share/:slug" }
   ]
 }

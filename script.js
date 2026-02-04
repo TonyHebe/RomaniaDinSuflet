@@ -8,43 +8,37 @@
   }
 
   function getInFeedAdConfig() {
-    const slotsRaw = getMetaContent("adsense-infeed-slots");
-    const everyRaw = getMetaContent("adsense-infeed-every");
+    const idsRaw = getMetaContent("ezoic-infeed-ids");
+    const everyRaw = getMetaContent("ezoic-infeed-every");
 
-    const slots = slotsRaw
+    const ids = idsRaw
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean)
-      .filter((s) => /^\d{6,}$/.test(s));
+      .map((s) => Number.parseInt(s, 10))
+      .filter((n) => Number.isFinite(n) && n > 0);
 
     const every = Number.parseInt(String(everyRaw || "1"), 10);
     const freq = Number.isFinite(every) && every > 0 ? every : 1;
 
-    return { slots, every: freq };
+    return { ids, every: freq };
   }
 
-  function renderInFeedAd({ slot }) {
-    // Container is hidden by default; ads.js will unhide when properly configured.
+  function renderInFeedAd({ placementId }) {
+    // Hidden by default; ezoic-placements.js will unhide once a valid placement id is set.
     return `
-      <div class="article-card ad-card" data-ad="stiri_infeed" aria-label="Publicitate" hidden>
+      <div class="article-card ad-card" data-ad="stiri_infeed" aria-label="Publicitate">
         <div class="ad-label" aria-hidden="true">Publicitate</div>
-        <ins
-          class="adsbygoogle ad-slot"
-          style="display: block"
-          data-ad-client="ca-pub-REPLACE_ME"
-          data-ad-slot="${escapeAttr(String(slot))}"
-          data-ad-format="auto"
-          data-full-width-responsive="true"
-        ></ins>
+        <div data-ezoic-placement-id="${escapeAttr(String(placementId))}" hidden></div>
       </div>
     `;
   }
 
   function maybeInitAds() {
-    const fn = window.__RDS_INIT_ADS;
+    const fn = window.__RDS_EZOIC_SHOW_ADS;
     if (typeof fn === "function") {
       try {
-        fn();
+        fn(document);
       } catch {
         // Ignore (ad blockers, CSP, etc). Site should still function.
       }
@@ -132,7 +126,7 @@
       }
 
       empty.hidden = true;
-      const { slots: inFeedSlots, every: inFeedEvery } = getInFeedAdConfig();
+      const { ids: inFeedIds, every: inFeedEvery } = getInFeedAdConfig();
       const parts = [];
       let slotIndex = 0;
 
@@ -172,11 +166,11 @@
         `);
 
         const shouldInsertAd =
-          inFeedSlots.length > 0 && (i + 1) % inFeedEvery === 0 && i !== items.length - 1;
+          inFeedIds.length > 0 && (i + 1) % inFeedEvery === 0 && i !== items.length - 1;
         if (shouldInsertAd) {
-          const slot = inFeedSlots[slotIndex % inFeedSlots.length];
+          const placementId = inFeedIds[slotIndex % inFeedIds.length];
           slotIndex += 1;
-          parts.push(renderInFeedAd({ slot }));
+          parts.push(renderInFeedAd({ placementId }));
         }
       }
 

@@ -1,3 +1,8 @@
 # AdSense ads.txt
 # Replace with your real publisher id (pub-xxxxxxxxxxxxxxxx).
 google.com, pub-9846184063862431, DIRECT, f08c47fec0942fa0
+
+# Ezoic ads.txt
+# This project uses Vercel to 301-redirect `/ads.txt` to Ezoic's ads.txt manager.
+# If you're not deploying on Vercel (or you remove the redirect), paste the required
+# lines from your Ezoic dashboard below.
