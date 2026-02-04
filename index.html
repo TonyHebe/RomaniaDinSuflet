@@ -17,7 +17,7 @@
       name="description"
       content="Romania Din Suflet — știri și povești, într-un ton neutru, pentru cititori din toată țara."
     />
-    <!-- Ads provider(s): "ezoic" (preferred), "adsense", "adsterra" -->
+    <!-- Ads provider(s): "ezoic" (preferred) or "adsense" -->
     <meta name="ads-provider" content="ezoic" />
     <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
@@ -28,9 +28,6 @@
     <meta name="adsense-infeed-slots" content="REPLACE_ME" />
     <!-- Insert an ad after every N articles (set 1 = after each article). -->
     <meta name="adsense-infeed-every" content="1" />
-    <!-- Adsterra: replace with your real Adsterra key to enable -->
-    <meta name="adsterra-home-top-key" content="REPLACE_ME" />
-
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
     <!-- Vercel Web Analytics -->
@@ -91,28 +88,6 @@
             data-ad-format="auto"
             data-full-width-responsive="true"
           ></ins>
-        </div>
-      </section>
-
-      <!-- Adsterra (banner): enabled when adsterra-home-top-key is set -->
-      <section
-        class="ad-section"
-        data-ad="home_top_adsterra"
-        aria-label="Publicitate (Adsterra)"
-        hidden
-      >
-        <div class="container">
-          <div class="ad-label" aria-hidden="true">Publicitate</div>
-          <div
-            class="ad-slot adsterra-slot"
-            data-adsterra-key-meta="adsterra-home-top-key"
-            data-adsterra-config-field="homeTopKeyDesktop"
-            data-adsterra-config-field-mobile="homeTopKeyMobile"
-            data-adsterra-width="300"
-            data-adsterra-height="250"
-            data-adsterra-width-mobile="320"
-            data-adsterra-height-mobile="50"
-          ></div>
         </div>
       </section>
 

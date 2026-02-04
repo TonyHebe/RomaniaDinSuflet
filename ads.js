@@ -1,7 +1,7 @@
 (() => {
   // Bump this string to quickly confirm which ads.js is deployed in production.
   // (Useful when CDN/Vercel is serving an older cached build.)
-  const __RDS_ADS_BUILD = "2026-02-03-adsterra-frame";
+  const __RDS_ADS_BUILD = "2026-02-04-ezoic";
 
   function isDebug() {
     try {
@@ -28,7 +28,7 @@
   function getProvider() {
     const el = document.querySelector('meta[name="ads-provider"]');
     const raw = el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
-    // Examples: "ezoic", "adsense", "adsterra", "adsense,adsterra"
+    // Examples: "ezoic", "adsense"
     return raw
       .split(",")
       .map((s) => s.trim().toLowerCase())
@@ -63,48 +63,6 @@
   function isRealSlotId(slot) {
     // Slot IDs are numeric in AdSense.
     return /^\d{6,}$/.test(slot);
-  }
-
-  function isRealAdsterraKey(key) {
-    const k = String(key || "").trim();
-    return /^[a-z0-9]+$/i.test(k) && !/^replace_me$/i.test(k);
-  }
-
-  let __RDS_AD_CONFIG_PROMISE = null;
-  async function fetchAdConfig() {
-    if (__RDS_AD_CONFIG_PROMISE) return __RDS_AD_CONFIG_PROMISE;
-    __RDS_AD_CONFIG_PROMISE = (async () => {
-      const tryFetch = async (path) => {
-        try {
-          const res = await fetch(path, { headers: { Accept: "application/json" } });
-          const contentType = String(res.headers.get("content-type") || "").toLowerCase();
-          const data = contentType.includes("application/json")
-            ? await res.json().catch(() => null)
-            : null;
-          if (!res.ok) {
-            debugLog("Config fetch failed:", path, "status=", res.status);
-            return null;
-          }
-          if (!data || data.ok !== true) {
-            debugLog("Config fetch invalid payload:", path);
-            return null;
-          }
-          debugLog("Config fetch ok:", path);
-          return data;
-        } catch (e) {
-          debugLog("Config fetch error:", path, String(e?.message || e));
-          return null;
-        }
-      };
-
-      // Some blockers block URLs containing "ads". Try a neutral endpoint first, then fall back.
-      return (
-        (await tryFetch("/api/config")) ||
-        (await tryFetch("/api/public-config")) ||
-        (await tryFetch("/api/ads-config"))
-      );
-    })().catch(() => null);
-    return __RDS_AD_CONFIG_PROMISE;
   }
 
   function ensureAdSenseScript(client) {
@@ -272,212 +230,15 @@
     pushAds(eligible);
   }
 
-  function buildAdsterraFrameUrl({ key, width, height, token }) {
-    // Use an absolute path so it resolves consistently from any page URL.
-    const url = new URL("/adsterra-frame.html", window.location.origin);
-    url.searchParams.set("key", String(key || "").trim());
-    url.searchParams.set("w", String(Number(width) || 0));
-    url.searchParams.set("h", String(Number(height) || 0));
-    url.searchParams.set("token", String(token || ""));
-    return url.toString();
-  }
-
-  function getAdsterraSize(el) {
-    const isMobile = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
-    const wAttr = isMobile ? "data-adsterra-width-mobile" : "data-adsterra-width";
-    const hAttr = isMobile ? "data-adsterra-height-mobile" : "data-adsterra-height";
-
-    const wRaw = (el.getAttribute(wAttr) || "").trim();
-    const hRaw = (el.getAttribute(hAttr) || "").trim();
-
-    const width = Number.parseInt(wRaw || (isMobile ? "320" : "728"), 10);
-    const height = Number.parseInt(hRaw || (isMobile ? "50" : "90"), 10);
-
-    return {
-      width: Number.isFinite(width) && width > 0 ? width : isMobile ? 320 : 728,
-      height: Number.isFinite(height) && height > 0 ? height : isMobile ? 50 : 90,
-    };
-  }
-
-  function getAdsterraKeyForSlot({ slot, cfg, isMobile }) {
-    const metaAttr = isMobile ? "data-adsterra-key-meta-mobile" : "data-adsterra-key-meta";
-    const cfgAttr = isMobile
-      ? "data-adsterra-config-field-mobile"
-      : "data-adsterra-config-field";
-
-    const metaName = String(slot.getAttribute(metaAttr) || "").trim();
-    const cfgField = String(slot.getAttribute(cfgAttr) || "").trim();
-
-    // Fallback to non-mobile attributes if mobile-specific not provided.
-    const baseMetaName = String(slot.getAttribute("data-adsterra-key-meta") || "").trim();
-    const baseCfgField = String(slot.getAttribute("data-adsterra-config-field") || "").trim();
-
-    let key = metaName ? getMetaContent(metaName) : "";
-    if (!isRealAdsterraKey(key) && baseMetaName) key = getMetaContent(baseMetaName);
-
-    if (!isRealAdsterraKey(key) && cfg && cfgField) {
-      key = String(cfg?.adsterra?.[cfgField] || "").trim();
-    }
-    if (!isRealAdsterraKey(key) && cfg && baseCfgField) {
-      key = String(cfg?.adsterra?.[baseCfgField] || "").trim();
-    }
-
-    return String(key || "").trim();
-  }
-
-  const __RDS_ADSTERRA_REVEAL_HANDLERS =
-    window.__RDS_ADSTERRA_REVEAL_HANDLERS instanceof Map
-      ? window.__RDS_ADSTERRA_REVEAL_HANDLERS
-      : new Map();
-  window.__RDS_ADSTERRA_REVEAL_HANDLERS = __RDS_ADSTERRA_REVEAL_HANDLERS;
-
-  function ensureAdsterraMessageListener() {
-    if (window.__RDS_ADSTERRA_MSG_LISTENER_INITED) return;
-    window.__RDS_ADSTERRA_MSG_LISTENER_INITED = true;
-
-    window.addEventListener("message", (ev) => {
-      const data = ev?.data;
-      if (!data || typeof data !== "object") return;
-      if (data.source !== "rds_ads" || data.type !== "adsterra") return;
-
-      const token = String(data.token || "");
-      if (!token) return;
-
-      const handler = __RDS_ADSTERRA_REVEAL_HANDLERS.get(token);
-      if (typeof handler !== "function") return;
-
-      try {
-        handler({
-          status: String(data.status || ""),
-          detail: String(data.detail || ""),
-        });
-      } finally {
-        __RDS_ADSTERRA_REVEAL_HANDLERS.delete(token);
-      }
-    });
-  }
-
-  function renderAdsterraIntoSlot(slotEl, { key, width, height, container }) {
-    slotEl.innerHTML = "";
-
-    const iframe = document.createElement("iframe");
-    iframe.title = "Publicitate";
-    // Important: do NOT lazy-load here.
-    // These containers start `hidden` and only unhide after the iframe reports "filled".
-    // With `loading="lazy"`, some browsers won't load the iframe while hidden/offscreen,
-    // causing a deadlock (never loads -> never posts message -> never reveals).
-    iframe.loading = "eager";
-    iframe.width = String(width);
-    iframe.height = String(height);
-    iframe.setAttribute("frameborder", "0");
-    iframe.setAttribute("scrolling", "no");
-    // Use a real same-origin iframe URL instead of srcdoc so Adsterra sees a normal page referrer
-    // (some Adsterra setups reject srcdoc/about:srcdoc referrers and return blank/403).
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
-    iframe.style.border = "0";
-    iframe.style.overflow = "hidden";
-    iframe.style.display = "block";
-    iframe.style.width = `${width}px`;
-    iframe.style.height = `${height}px`;
-
-    // Use postMessage from the iframe to decide whether to reveal the container.
-    ensureAdsterraMessageListener();
-    const token = `${Math.random().toString(36).slice(2)}_${Date.now()}`;
-    iframe.dataset.rdsToken = token;
-
-    // Avoid showing blank placeholders: only unhide once the iframe reports it actually rendered content.
-    // Important: register the handler BEFORE setting iframe.src (and before attaching),
-    // otherwise fast postMessage events can be dropped.
-    if (container instanceof HTMLElement) {
-      container.hidden = true;
-
-      __RDS_ADSTERRA_REVEAL_HANDLERS.set(token, ({ status, detail }) => {
-        const s = String(status || "").toLowerCase();
-        if (s === "filled") {
-          container.hidden = false;
-          debugLog("Adsterra filled:", detail || "filled");
-        } else {
-          container.hidden = true;
-          debugLog("Adsterra stayed hidden:", s || "unknown", detail || "");
-        }
-      });
-
-      // If we never hear back (some blockers), keep hidden and cleanup.
-      window.setTimeout(() => {
-        if (!__RDS_ADSTERRA_REVEAL_HANDLERS.has(token)) return;
-        __RDS_ADSTERRA_REVEAL_HANDLERS.delete(token);
-        container.hidden = true;
-        debugLog("Adsterra stayed hidden: no postMessage received within timeout.");
-      }, 13000);
-    }
-
-    iframe.src = buildAdsterraFrameUrl({ key, width, height, token });
-    slotEl.appendChild(iframe);
-  }
-
-  function initAdsterra(providers) {
-    const adsterraEnabled = providers.includes("adsterra");
-    if (!adsterraEnabled) return;
-
-    const slots = Array.from(
-      document.querySelectorAll(".adsterra-slot[data-adsterra-key-meta]"),
-    ).filter((el) => el instanceof HTMLElement);
-    if (!slots.length) return;
-
-    // Async flow: meta-first, otherwise try /api/ads-config (env-backed).
-    (async () => {
-      const cfg = await fetchAdConfig();
-      const isMobile = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
-      if (__ADS_DEBUG && !cfg) {
-        debugLog(
-          "Adsterra config not loaded: all config endpoints failed/blocked. (Keys must be set via meta or config endpoint must be reachable.)",
-        );
-      }
-      if (__ADS_DEBUG) {
-        const a = cfg?.adsterra || {};
-        debugLog("Adsterra config loaded:", {
-          hasHomeTopKeyDesktop: Boolean(a?.homeTopKeyDesktop),
-          hasHomeTopKeyMobile: Boolean(a?.homeTopKeyMobile),
-          hasArticleTopKeyDesktop: Boolean(a?.articleTopKeyDesktop),
-          hasArticleTopKeyMobile: Boolean(a?.articleTopKeyMobile),
-        });
-      }
-
-      for (const slot of slots) {
-        if (!(slot instanceof HTMLElement)) continue;
-        if (slot.dataset.adsterraRendered === "true") continue;
-
-        const key = getAdsterraKeyForSlot({ slot, cfg, isMobile });
-        if (!isRealAdsterraKey(key)) {
-          debugLog("Adsterra: missing/invalid key for slot.", slot);
-          continue;
-        }
-        if (__ADS_DEBUG) {
-          const masked = key.length > 10 ? `${key.slice(0, 4)}…${key.slice(-4)}` : `${key.slice(0, 2)}…`;
-          debugLog("Adsterra: using key", masked, "isMobile=", Boolean(isMobile));
-        }
-
-        const container = getAdContainer(slot);
-
-        const { width, height } = getAdsterraSize(slot);
-        renderAdsterraIntoSlot(slot, { key, width, height, container });
-        slot.dataset.adsterraRendered = "true";
-      }
-    })().catch(() => {
-      // Ignore (ad blockers, CSP, etc). Site should still function.
-    });
-  }
-
   function initAds() {
     const providers = getProvider();
     // If Ezoic is enabled, avoid initializing other ad providers from this file to prevent conflicts.
     // Ezoic manages its own scripts, placements, and downstream demand (which can still include Google).
     if (providers.includes("ezoic")) {
-      debugLog("Ezoic enabled via meta; skipping AdSense/Adsterra init in ads.js.");
+      debugLog("Ezoic enabled via meta; skipping AdSense init in ads.js.");
       return;
     }
     initAdSense(providers);
-    initAdsterra(providers);
   }
 
   // Expose for pages that add ad units dynamically (e.g. after fetch/render).
