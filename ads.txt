@@ -1,3 +1,6 @@
 # AdSense ads.txt
 # Replace with your real publisher id (pub-xxxxxxxxxxxxxxxx).
 google.com, pub-9846184063862431, DIRECT, f08c47fec0942fa0
+
+# Ezoic ads.txt
+# Paste the required lines from your Ezoic dashboard below.

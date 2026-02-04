@@ -28,7 +28,7 @@
   function getProvider() {
     const el = document.querySelector('meta[name="ads-provider"]');
     const raw = el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
-    // Examples: "adsense", "adsterra", "adsense,adsterra"
+    // Examples: "ezoic", "adsense", "adsterra", "adsense,adsterra"
     return raw
       .split(",")
       .map((s) => s.trim().toLowerCase())
@@ -470,6 +470,12 @@
 
   function initAds() {
     const providers = getProvider();
+    // If Ezoic is enabled, avoid initializing other ad providers from this file to prevent conflicts.
+    // Ezoic manages its own scripts, placements, and downstream demand (which can still include Google).
+    if (providers.includes("ezoic")) {
+      debugLog("Ezoic enabled via meta; skipping AdSense/Adsterra init in ads.js.");
+      return;
+    }
     initAdSense(providers);
     initAdsterra(providers);
   }
