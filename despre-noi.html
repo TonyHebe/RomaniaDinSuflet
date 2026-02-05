@@ -12,26 +12,16 @@
 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Romania Din Suflet</title>
+    <title>Despre noi — Romania Din Suflet</title>
     <meta
       name="description"
-      content="Romania Din Suflet — știri și povești, într-un ton neutru, pentru cititori din toată țara."
+      content="Despre Romania Din Suflet — o publicație online cu știri și povești din România."
     />
     <!-- Ads provider(s): "ezoic" (preferred) or "adsense" -->
     <meta name="ads-provider" content="ezoic" />
-    <!-- Ezoic placement IDs (set numeric IDs from Ezoic dashboard) -->
-    <meta name="ezoic-home-top-id" content="118" />
-    <meta name="ezoic-infeed-ids" content="111,112" />
-    <meta name="ezoic-infeed-every" content="3" />
-    <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
+    <!-- Google AdSense -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
-    <!-- Official AdSense account meta (recommended by Google) -->
     <meta name="google-adsense-account" content="ca-pub-9846184063862431" />
-    <!-- AdSense script is injected by ads.js when enabled -->
-    <!-- In-feed ads (Știri list). Provide one or more numeric slot IDs, comma-separated. -->
-    <meta name="adsense-infeed-slots" content="REPLACE_ME" />
-    <!-- Insert an ad after every N articles (set 1 = after each article). -->
-    <meta name="adsense-infeed-every" content="1" />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
     <!-- Vercel Web Analytics -->
@@ -68,66 +58,76 @@
         </button>
 
         <nav class="site-nav" aria-label="Navigație principală" id="primary-nav">
-          <a href="#stiri">Stiri</a>
-          <a href="./despre-noi.html">Despre noi</a>
-          <a href="#contact">Contact</a>
+          <a href="./#stiri">Știri</a>
+          <a href="./despre-noi.html" aria-current="page">Despre noi</a>
+          <a href="./#contact">Contact</a>
         </nav>
       </div>
     </header>
 
     <main id="main" class="site-main">
       <section class="hero" aria-labelledby="page-title">
-        <h1 id="page-title">Home</h1>
+        <h1 id="page-title">Despre noi</h1>
       </section>
 
-      <section class="ad-section" data-ad="home_top" aria-label="Publicitate">
-        <div class="container">
-          <div class="ad-label" aria-hidden="true">Publicitate</div>
-          <div data-ezoic-id-meta="ezoic-home-top-id" hidden></div>
-        </div>
-      </section>
-
-      <section class="section" id="stiri" aria-labelledby="stiri-title">
+      <section class="section" aria-labelledby="about-title">
         <div class="container">
           <div class="section-head">
-            <h2 class="section-title" id="stiri-title">Știri</h2>
-            <p class="section-muted">Ultimele articole publicate.</p>
+            <h2 class="section-title" id="about-title">România din Suflet</h2>
+            <p class="section-muted">
+              O publicație online cu știri, informații utile și povești din România — scrise clar,
+              cu respect pentru cititori.
+            </p>
           </div>
 
-          <div class="articles" id="stiri-list" aria-live="polite"></div>
-          <nav
-            class="pagination"
-            id="stiri-pagination"
-            aria-label="Paginare știri"
-            hidden
-          ></nav>
-          <p class="section-muted" id="stiri-empty" hidden>
-            Nu există articole încă.
-          </p>
-        </div>
-      </section>
-
-      <section class="section" id="despre" aria-labelledby="despre-title">
-        <div class="container">
-          <div class="section-head">
-            <h2 class="section-title" id="despre-title">Despre noi</h2>
-            <p class="section-muted">
-              Romania Din Suflet — știri și povești, într-un ton neutru, pentru
-              cititori din toată țara.
+          <div class="article-content">
+            <p>
+              <strong>Romania Din Suflet</strong> este un site de știri și actualitate, dedicat
+              evenimentelor care contează pentru oameni: ce se întâmplă în țară, decizii cu impact
+              public, subiecte sociale, dar și povești despre comunități, inițiative și locuri.
             </p>
-            <p class="section-muted">
-              <a href="./despre-noi.html" style="text-decoration: underline;">Citește mai mult</a>
+
+            <p>
+              Ne propunem să oferim o experiență simplă: intri, citești, înțelegi. De aceea punem
+              accent pe titluri clare, pe idei prezentate pe scurt și pe un ton echilibrat.
+            </p>
+
+            <h2>Ce publicăm</h2>
+            <p>
+              Publicăm articole din zona de <strong>știri</strong> și <strong>actualitate</strong>,
+              dar și materiale care aduc context: explicații, rezumate ale informațiilor importante
+              și povești din România.
+            </p>
+
+            <h2>Transparență și responsabilitate</h2>
+            <p>
+              Conținutul este realizat pentru informare. Încurajăm cititorii să consulte și surse
+              oficiale acolo unde este relevant. Dacă observi o eroare, ne poți scrie și o corectăm
+              cât mai repede posibil.
+            </p>
+
+            <h2>Despre reclame</h2>
+            <p>
+              Site-ul poate afișa reclame pentru a susține funcționarea și publicarea conținutului.
+              În măsura posibilului, încercăm să menținem o experiență de lectură curată.
+            </p>
+
+            <h2>Contact</h2>
+            <p>
+              Pentru sugestii, corecții sau întrebări, te rugăm să folosești secțiunea de contact
+              de pe pagina principală.
+              <a href="./#contact" style="text-decoration: underline;">Mergi la Contact</a>.
             </p>
           </div>
         </div>
       </section>
     </main>
 
-    <footer class="site-footer" id="contact">
+    <footer class="site-footer">
       <div class="container footer-inner">
         <p class="footer-brand">Romania Din Suflet</p>
         <p class="footer-muted">
-          © <span id="year"></span> Toate drepturile rezervate. | 
+          © <span id="year"></span> Toate drepturile rezervate. |
           <a href="./privacy.html" style="color: inherit; text-decoration: underline;">Politica de Confidențialitate</a>
         </p>
       </div>
