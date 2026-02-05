@@ -4,7 +4,11 @@ export default function handler(req, res) {
   // - your custom domain
   // - your *.vercel.app domain
   const rawHost = String(req?.headers?.host || "").trim();
-  const host = rawHost.split(":")[0]; // strip any port
+  let host = rawHost.split(":")[0]; // strip any port
+  host = host.toLowerCase();
+  // Prefer the apex host for Ezoic verification to avoid mismatches between
+  // `www.example.com` and `example.com` in the Ads.txt Manager UI.
+  if (host.startsWith("www.")) host = host.slice(4);
 
   // If host is missing (rare), fall back to serving the local file by returning 404
   // so Vercel can serve /ads.txt if present.
