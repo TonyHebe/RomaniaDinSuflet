@@ -131,8 +131,8 @@ Ad placeholders live in:
     - `meta[name="adsense-article-incontent-every"]` = insert an ad after every N paragraphs (starting at `start`)
 
 - **Step 4 (`ads.txt`)**:
-  - If you use Ezoic Ads.txt Manager, `/ads.txt` is redirected (see `vercel.json`),
-    so you do not edit a local `ads.txt`.
+  - If you use Ezoic Ads.txt Manager, `/ads.txt` is served from Ezoic via a Vercel rewrite
+    to `/api/ads-txt` (see `vercel.json`), so you do not edit a local `ads.txt`.
   - If you use AdSense directly (no Ezoic), remove the redirect and create/update
     `ads.txt` with your publisher id:
     `google.com, pub-xxxxxxxxxxxxxxxx, DIRECT, f08c47fec0942fa0`
