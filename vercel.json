@@ -1,13 +1,6 @@
 {
   "version": 2,
   "crons": [],
-  "redirects": [
-    {
-      "source": "/ads.txt",
-      "destination": "https://srv.adstxtmanager.com/19390/romaniadinsuflet.ro",
-      "permanent": true
-    }
-  ],
   "rewrites": [
     { "source": "/s/:slug", "destination": "/api/share/:slug" }
   ]

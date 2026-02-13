@@ -1,14 +1,6 @@
 <!doctype html>
 <html lang="ro">
   <head>
-    <!-- Ezoic CMP + header scripts (must load first in <head>) -->
-    <script data-cfasync="false" src="https://cmp.gatekeeperconsent.com/min.js"></script>
-    <script data-cfasync="false" src="https://the.gatekeeperconsent.com/cmp.min.js"></script>
-    <script async src="//www.ezojs.com/ezoic/sa.min.js"></script>
-    <script>
-      window.ezstandalone = window.ezstandalone || {};
-      ezstandalone.cmd = ezstandalone.cmd || [];
-    </script>
     <!-- Multitag Ad Script -->
     <script src="https://quge5.com/88/tag.min.js" data-zone="210889" async data-cfasync="false"></script>
 
@@ -16,13 +8,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Articol — Romania Din Suflet</title>
     <meta name="description" content="Articol — Romania Din Suflet" />
-    <!-- Ads provider(s): "ezoic" (preferred) or "adsense" -->
-    <meta name="ads-provider" content="ezoic" />
-    <!-- Ezoic placement IDs (set numeric IDs from Ezoic dashboard) -->
-    <meta name="ezoic-article-top-id" content="119" />
-    <meta name="ezoic-article-incontent-ids" content="109,110,115" />
-    <meta name="ezoic-article-incontent-every" content="3" />
-    <meta name="ezoic-article-incontent-start" content="2" />
     <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
     <!-- Official AdSense account meta (recommended by Google) -->
@@ -69,10 +54,6 @@
             <p class="section-muted" id="article-meta"></p>
           </div>
 
-          <div class="ad-section" data-ad="article_top" aria-label="Publicitate">
-            <div class="ad-label" aria-hidden="true">Publicitate</div>
-            <div data-ezoic-id-meta="ezoic-article-top-id" hidden></div>
-          </div>
 
           <img
             id="article-image"
@@ -133,48 +114,6 @@
           return el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
         }
 
-        function getInContentAdConfig() {
-          const idsRaw = getMetaContent("ezoic-article-incontent-ids");
-          const everyRaw = getMetaContent("ezoic-article-incontent-every");
-          const startRaw = getMetaContent("ezoic-article-incontent-start");
-
-          const ids = idsRaw
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .map((s) => Number.parseInt(s, 10))
-            .filter((n) => Number.isFinite(n) && n > 0);
-
-          const every = Number.parseInt(String(everyRaw || "3"), 10);
-          const start = Number.parseInt(String(startRaw || "2"), 10);
-
-          return {
-            ids,
-            every: Number.isFinite(every) && every > 0 ? every : 3,
-            start: Number.isFinite(start) && start > 0 ? start : 2,
-          };
-        }
-
-        function renderInContentAd({ placementId }) {
-          // Hidden by default; ezoic-placements.js will unhide once a valid placement id is set.
-          return `
-            <div class="ad-section ad-incontent" data-ad="article_incontent" aria-label="Publicitate">
-              <div class="ad-label" aria-hidden="true">Publicitate</div>
-              <div data-ezoic-placement-id="${escapeHtml(String(placementId))}" hidden></div>
-            </div>
-          `;
-        }
-
-        function maybeInitAds() {
-          const fn = window.__RDS_EZOIC_SHOW_ADS;
-          if (typeof fn === "function") {
-            try {
-              fn(document);
-            } catch {
-              // Ignore (ad blockers, CSP, etc). Site should still function.
-            }
-          }
-        }
 
         async function load() {
           try {
@@ -222,25 +161,9 @@
               .map((p) => p.trim())
               .filter(Boolean);
 
-            const { ids, every, start } = getInContentAdConfig();
-            const parts = [];
-            let slotIndex = 0;
-
-            for (let i = 0; i < rawParagraphs.length; i += 1) {
-              parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
-
-              const paragraphNumber = i + 1;
-              const canInsert = ids.length > 0 && paragraphNumber >= start && i !== rawParagraphs.length - 1;
-              const shouldInsert = canInsert && (paragraphNumber - start + 1) % every === 0;
-              if (shouldInsert) {
-                const placementId = ids[slotIndex % ids.length];
-                slotIndex += 1;
-                parts.push(renderInContentAd({ placementId }));
-              }
-            }
+            const parts = rawParagraphs.map((p) => `<p>${escapeHtml(p)}</p>`);
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
-            maybeInitAds();
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
@@ -251,7 +174,6 @@
         load();
       })();
     </script>
-    <script src="./ezoic-placements.js" defer></script>
   </body>
 </html>
 

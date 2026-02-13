@@ -1,7 +1,7 @@
 (() => {
   // Bump this string to quickly confirm which ads.js is deployed in production.
   // (Useful when CDN/Vercel is serving an older cached build.)
-  const __RDS_ADS_BUILD = "2026-02-04-ezoic";
+  const __RDS_ADS_BUILD = "2026-02-09-multitag";
 
   function isDebug() {
     try {
@@ -28,7 +28,7 @@
   function getProvider() {
     const el = document.querySelector('meta[name="ads-provider"]');
     const raw = el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
-    // Examples: "ezoic", "adsense"
+    // Examples: "adsense"
     return raw
       .split(",")
       .map((s) => s.trim().toLowerCase())
@@ -232,12 +232,6 @@
 
   function initAds() {
     const providers = getProvider();
-    // If Ezoic is enabled, avoid initializing other ad providers from this file to prevent conflicts.
-    // Ezoic manages its own scripts, placements, and downstream demand (which can still include Google).
-    if (providers.includes("ezoic")) {
-      debugLog("Ezoic enabled via meta; skipping AdSense init in ads.js.");
-      return;
-    }
     initAdSense(providers);
   }
 

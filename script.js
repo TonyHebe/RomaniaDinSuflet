@@ -7,43 +7,6 @@
     return el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
   }
 
-  function getInFeedAdConfig() {
-    const idsRaw = getMetaContent("ezoic-infeed-ids");
-    const everyRaw = getMetaContent("ezoic-infeed-every");
-
-    const ids = idsRaw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => Number.parseInt(s, 10))
-      .filter((n) => Number.isFinite(n) && n > 0);
-
-    const every = Number.parseInt(String(everyRaw || "1"), 10);
-    const freq = Number.isFinite(every) && every > 0 ? every : 1;
-
-    return { ids, every: freq };
-  }
-
-  function renderInFeedAd({ placementId }) {
-    // Hidden by default; ezoic-placements.js will unhide once a valid placement id is set.
-    return `
-      <div class="article-card ad-card" data-ad="stiri_infeed" aria-label="Publicitate">
-        <div class="ad-label" aria-hidden="true">Publicitate</div>
-        <div data-ezoic-placement-id="${escapeAttr(String(placementId))}" hidden></div>
-      </div>
-    `;
-  }
-
-  function maybeInitAds() {
-    const fn = window.__RDS_EZOIC_SHOW_ADS;
-    if (typeof fn === "function") {
-      try {
-        fn(document);
-      } catch {
-        // Ignore (ad blockers, CSP, etc). Site should still function.
-      }
-    }
-  }
 
   const toggle = document.querySelector(".nav-toggle");
   const nav = document.getElementById("primary-nav");
@@ -126,9 +89,7 @@
       }
 
       empty.hidden = true;
-      const { ids: inFeedIds, every: inFeedEvery } = getInFeedAdConfig();
       const parts = [];
-      let slotIndex = 0;
 
       for (let i = 0; i < items.length; i += 1) {
         const a = items[i];
@@ -164,18 +125,9 @@
             </div>
           </article>
         `);
-
-        const shouldInsertAd =
-          inFeedIds.length > 0 && (i + 1) % inFeedEvery === 0 && i !== items.length - 1;
-        if (shouldInsertAd) {
-          const placementId = inFeedIds[slotIndex % inFeedIds.length];
-          slotIndex += 1;
-          parts.push(renderInFeedAd({ placementId }));
-        }
       }
 
       list.innerHTML = parts.join("");
-      maybeInitAds();
 
       renderStiriPagination({ el: pagination, page, totalPages });
     } catch (err) {
