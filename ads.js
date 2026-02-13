@@ -1,7 +1,7 @@
 (() => {
   // Bump this string to quickly confirm which ads.js is deployed in production.
   // (Useful when CDN/Vercel is serving an older cached build.)
-  const __RDS_ADS_BUILD = "2026-02-09-multitag";
+  const __RDS_ADS_BUILD = "2026-02-09-individual-ads";
 
   function isDebug() {
     try {
