@@ -210,6 +210,17 @@ export async function postLinkToFacebook({ link, message } = {}) {
   return { postId: resp?.id || null, raw: resp };
 }
 
+/** Call Graph API to verify token can access the Page. Use for debugging FB_PAGE_ID + FB_PAGE_TOKEN. */
+export async function getFacebookPageInfo() {
+  const pageId = mustGetEnv("FB_PAGE_ID");
+  const token = mustGetEnv("FB_PAGE_TOKEN");
+  const resp = await graphGet(`/${pageId}`, {
+    fields: "id,name,access_token",
+    access_token: token,
+  });
+  return resp && typeof resp === "object" ? resp : null;
+}
+
 export async function getFacebookPostInfo(postId) {
   const token = mustGetEnv("FB_PAGE_TOKEN");
   if (!postId) throw new Error("Missing postId");
