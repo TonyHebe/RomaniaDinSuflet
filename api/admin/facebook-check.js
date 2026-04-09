@@ -12,12 +12,13 @@ import {
 } from "../_lib/facebook.js";
 
 function getSecret(req) {
-  return (
+  const raw =
     req.headers["x-admin-secret"] ||
     req.headers["x-cron-secret"] ||
     req.query?.secret ||
-    (req.headers["authorization"] && req.headers["authorization"].replace(/^Bearer\s+/i, ""))
-  );
+    (req.headers["authorization"] && req.headers["authorization"].replace(/^Bearer\s+/i, ""));
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value != null ? String(value).trim() : "";
 }
 
 function formatFbError(err) {
@@ -39,7 +40,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const secret = process.env.ADMIN_SECRET || process.env.CRON_SECRET;
+  const secret = (process.env.ADMIN_SECRET || process.env.CRON_SECRET || "").trim();
   const provided = getSecret(req);
   if (!secret || provided !== secret) {
     res.status(401).json({ ok: false, error: "Unauthorized" });

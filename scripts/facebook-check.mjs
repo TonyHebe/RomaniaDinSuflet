@@ -17,14 +17,18 @@ if (!baseUrl) {
   process.exit(1);
 }
 
-const url =
+let url =
   (baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`).replace(/\/$/, "") +
   "/api/admin/facebook-check";
+if (secret) url += "?secret=" + encodeURIComponent(secret);
 
 const headers = { "user-agent": "RDS-FacebookCheck/1.0" };
-if (secret) headers["x-cron-secret"] = secret;
+if (secret) {
+  headers["x-admin-secret"] = secret;
+  headers["x-cron-secret"] = secret;
+}
 
-console.log("Calling", url, secret ? "(with secret)" : "(no secret - will get 401)");
+console.log("Calling", url.replace(secret, "***"), secret ? "(with secret)" : "(no secret - will get 401)");
 const res = await fetch(url, { headers });
 const text = await res.text();
 let data;

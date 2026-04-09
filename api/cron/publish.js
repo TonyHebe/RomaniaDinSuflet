@@ -444,18 +444,28 @@ export default async function handler(req, res) {
           const fbPostTitle = buildFacebookPostTitle(fbBaseTitle) || buildFacebookPostTitle(finalTitle) || finalTitle;
 
           // Prefer posting a photo + comment (better reach, link in comments).
-          // Fallback to link post if we don't have a usable image URL.
+          // Fallback to link post if no image, or if photo fails with publish_actions/permission error.
           const imageUrl = normalizeOgImageUrl(finalImageUrl, siteUrl);
           if (imageUrl) {
             fbMode = "photo";
-            const resp = await postPhotoToFacebook({ imageUrl, caption: fbPostTitle });
-            fbPostId = resp?.postId || null;
-            fbPhotoId = resp?.photoId || null;
-            fbRaw = resp?.raw || null;
-          } else {
+            try {
+              const resp = await postPhotoToFacebook({ imageUrl, caption: fbPostTitle });
+              fbPostId = resp?.postId || null;
+              fbPhotoId = resp?.photoId || null;
+              fbRaw = resp?.raw || null;
+            } catch (photoErr) {
+              if (isFacebookPermissionConfigError(photoErr)) {
+                fbMode = "link";
+                const resp = await postLinkToFacebook({ link: shareUrl, message: fbPostTitle });
+                fbPostId = resp?.postId || null;
+                fbRaw = resp?.raw || null;
+              } else {
+                throw photoErr;
+              }
+            }
+          }
+          if (!fbPostId) {
             fbMode = "link";
-            // Publish a link post so it appears under "All posts".
-            // The share URL renders OG tags (title/description/image) for rich previews.
             const resp = await postLinkToFacebook({ link: shareUrl, message: fbPostTitle });
             fbPostId = resp?.postId || null;
             fbRaw = resp?.raw || null;

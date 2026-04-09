@@ -84,7 +84,7 @@ export function isFacebookPermissionConfigError(err) {
 }
 
 async function graphGet(path, params) {
-  const base = "https://graph.facebook.com/v19.0";
+  const base = "https://graph.facebook.com/v21.0";
   const url = new URL(`${base}/${path.replace(/^\//, "")}`);
   for (const [k, v] of Object.entries(params || {})) {
     if (v === undefined || v === null) continue;
@@ -108,7 +108,7 @@ async function graphGet(path, params) {
 }
 
 async function graphPost(path, params) {
-  const base = "https://graph.facebook.com/v19.0";
+  const base = "https://graph.facebook.com/v21.0";
   const url = new URL(`${base}/${path.replace(/^\//, "")}`);
   for (const [k, v] of Object.entries(params || {})) {
     if (v === undefined || v === null) continue;

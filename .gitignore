@@ -2,6 +2,7 @@ node_modules/
 .vercel/
 .env
 .env.*
+fb-longlived-token.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

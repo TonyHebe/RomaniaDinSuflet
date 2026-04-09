@@ -89,7 +89,7 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
     }
 
     // Look at recent posts to bias selection toward sources that haven't been posted recently.
-    // This helps prevent "draining" one big backlog (e.g. cancan/g4media) before we ever reach newer sources.
+    // This helps prevent "draining" one big backlog (e.g. hotnews/g4media) before we ever reach newer sources.
     const recentPostedLimit = 2000;
     const { rows: recentPosted } = await client.query(
       `
