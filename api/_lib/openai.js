@@ -63,18 +63,18 @@ export async function rewriteWithAI({
 
   const sourceContent = String(content || "").trim().slice(0, 12000);
 
-  // Target 800-1000 words for AdSense compliance (~4800-6500 Romanian chars).
-  // Always aim for at least 4800 chars regardless of source length.
-  const minChars = 4800;
-  const maxChars = 6500;
-  // ~3.5 chars/token for Romanian; generous ceiling so the model isn't cut off.
-  const maxTokens = 2400;
+  // Target ~700 words for AdSense compliance (~4200 Romanian chars).
+  // Kept under 1500 tokens so the rewrite finishes within Vercel Hobby 60s limit.
+  const minChars = 3500;
+  const maxChars = 5000;
+  // ~3.5 chars/token for Romanian.
+  const maxTokens = 1500;
 
   const prompt = [
     `Esti un redactor de stiri roman. Rescrie si EXTINDE articolul de mai jos in limba romana.
 
 REGULI OBLIGATORII:
-- Continutul final (fara titlu) trebuie sa aiba MINIM ${minChars} caractere (aprox. 800 de cuvinte). Daca sursa e scurta, extinde cu context, explicatii si analiza.
+- Continutul final (fara titlu) trebuie sa aiba MINIM ${minChars} caractere (aprox. 700 de cuvinte). Daca sursa e scurta, extinde cu context, explicatii si analiza.
 - Nu copia fraze intregi din sursa; parafraza si restructureaza.
 - Pastreaza corect: nume proprii, date, cifre, citate parafrazate.
 - Titlul trebuie RESCRIS; sa nu fie identic cu titlul sursa.
@@ -97,7 +97,7 @@ ${sourceContent}`,
     .join("\n");
 
   // Keep this below the serverless maxDuration and leave room for scraping/DB.
-  const timeoutMs = Number.parseInt(process.env.OPENAI_TIMEOUT_MS || "55000", 10);
+  const timeoutMs = Number.parseInt(process.env.OPENAI_TIMEOUT_MS || "40000", 10);
   const retries = Number.parseInt(process.env.OPENAI_RETRIES || "2", 10);
   const maxAttempts = Math.max(1, (Number.isFinite(retries) ? retries : 2) + 1);
 

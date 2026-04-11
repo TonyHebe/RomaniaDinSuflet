@@ -55,7 +55,7 @@ async function getDeps() {
 // Vercel: allow enough time for scrape + (optional) OpenAI + (optional) Facebook.
 // Without this, a slow upstream can cause `FUNCTION_INVOCATION_FAILED`.
 export const config = {
-  maxDuration: 120,
+  maxDuration: 60,
 };
 
 class ConfigError extends Error {
@@ -432,10 +432,9 @@ export default async function handler(req, res) {
         fbEnabled = true;
         try {
           let fbBaseTitle = finalTitle;
-          const fbTitleAiEnabled = parseEnvFlag(
-            "FB_TITLE_AI",
-            Boolean(process.env.OPENAI_API_KEY),
-          );
+          // Default to false to save time on Hobby plan (60s limit).
+          // Set FB_TITLE_AI=true in env to enable.
+          const fbTitleAiEnabled = parseEnvFlag("FB_TITLE_AI", false);
           if (fbTitleAiEnabled && process.env.OPENAI_API_KEY) {
             try {
               const rewritten = await rewriteFacebookTitleWithAI({
