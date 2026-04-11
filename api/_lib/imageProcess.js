@@ -1,17 +1,128 @@
 import sharp from "sharp";
 
+// Fallback teaser pool used when OpenAI is unavailable.
+// Keywords map to more targeted phrases; unmatched falls back to generic pool.
+const TEASER_POOL = [
+  "NIMENI NU S-A AȘTEPTAT LA ASTA!",
+  "A IEȘIT TOTUL LA IVEALĂ!",
+  "BOMBA ZILEI!",
+  "TOTUL S-A DAT PESTE CAP!",
+  "ȘOC TOTAL!",
+  "DEZVĂLUIRE EXPLOZIVĂ!",
+  "NIMENI NU ȘTIA!",
+  "ADEVĂRUL A IEȘIT LA SUPRAFAȚĂ!",
+  "INCREDIBIL CE S-A ÎNTÂMPLAT!",
+  "TOATĂ LUMEA VORBEȘTE DESPRE ASTA!",
+  "MARE SURPRIZĂ!",
+  "SITUAȚIE FĂRĂ PRECEDENT!",
+  "REACȚIE NEAȘTEPTATĂ!",
+  "DECIZIE DE ULTIMĂ ORĂ!",
+  "S-A AFLAT TOTUL!",
+  "LOVITURA ZILEI!",
+  "SCHIMBARE MAJORĂ!",
+  "NIMENI NU SE AȘTEPTA!",
+  "TOTUL A EXPLODAT!",
+  "ANUNȚ BOMBĂ!",
+];
+
+/**
+ * Picks a teaser from the fallback pool.
+ * Uses a hash of the title so the same article always gets the same phrase,
+ * but different articles get different phrases.
+ */
+export function pickFallbackTeaser(title) {
+  const str = String(title || "");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return TEASER_POOL[hash % TEASER_POOL.length];
+}
+
 const DEFAULT_SIZE = 1080;
 const FETCH_TIMEOUT_MS = 15000;
 
+function escapeXml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 /**
- * Fetches an image from a URL, center-crops it to a square, and returns a JPEG Buffer.
- * Falls back gracefully: if anything fails, returns null so the caller can use the original URL.
+ * Simple word-wrap: splits text into at most `maxLines` lines,
+ * each no longer than `maxChars` characters.
+ */
+function wrapText(text, maxChars, maxLines) {
+  const words = String(text || "").trim().split(/\s+/);
+  const lines = [];
+  let current = "";
+  for (const word of words) {
+    if (lines.length >= maxLines) break;
+    const test = current ? `${current} ${word}` : word;
+    if (test.length <= maxChars) {
+      current = test;
+    } else {
+      if (current) {
+        lines.push(current);
+        current = word.slice(0, maxChars);
+      } else {
+        lines.push(word.slice(0, maxChars));
+        current = "";
+      }
+    }
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+  return lines;
+}
+
+/**
+ * Builds an SVG overlay with a colored bar at the bottom and bold white text.
+ */
+function buildTextOverlaySvg(text, size, {
+  barColor = "#c0161d",
+  textColor = "#ffffff",
+  fontSize = 54,
+  maxLines = 2,
+  maxCharsPerLine = 26,
+} = {}) {
+  const upper = String(text || "").toUpperCase();
+  const lines = wrapText(upper, maxCharsPerLine, maxLines);
+  const lineHeight = Math.round(fontSize * 1.3);
+  const paddingY = 28;
+  const barHeight = lines.length * lineHeight + paddingY * 2;
+  const barTop = size - barHeight;
+
+  const textSvg = lines.map((line, i) => {
+    const y = barTop + paddingY + fontSize + i * lineHeight;
+    return `<text
+      x="${size / 2}" y="${y}"
+      font-family="Arial Black, Impact, Arial, sans-serif"
+      font-size="${fontSize}"
+      font-weight="900"
+      fill="${textColor}"
+      text-anchor="middle"
+      letter-spacing="1">${escapeXml(line)}</text>`;
+  }).join("\n");
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+  <rect x="0" y="${barTop}" width="${size}" height="${barHeight}" fill="${barColor}" opacity="0.93"/>
+  ${textSvg}
+</svg>`;
+}
+
+/**
+ * Fetches an image from a URL, center-crops it to a square, optionally
+ * composites a bold title bar at the bottom, and returns a JPEG Buffer.
+ * Falls back gracefully: if anything fails, returns null so the caller
+ * can use the original URL.
  *
- * @param {string} imageUrl  - The source image URL.
- * @param {number} [size=1080] - Output width and height in pixels.
+ * @param {string} imageUrl       - The source image URL.
+ * @param {number} [size=1080]    - Output width and height in pixels.
+ * @param {string|null} [text]    - Optional title text to overlay on the bottom bar.
  * @returns {Promise<Buffer|null>}
  */
-export async function cropToSquare(imageUrl, size = DEFAULT_SIZE) {
+export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, text = null) {
   if (!imageUrl) return null;
 
   const controller = new AbortController();
@@ -33,14 +144,17 @@ export async function cropToSquare(imageUrl, size = DEFAULT_SIZE) {
   }
 
   try {
-    const processed = await sharp(buffer)
-      .resize(size, size, {
-        fit: "cover",       // center-crop (fills the square, no letterbox)
-        position: "centre",
-      })
-      .jpeg({ quality: 85 })
-      .toBuffer();
-    return processed;
+    let pipeline = sharp(buffer).resize(size, size, {
+      fit: "cover",
+      position: "centre",
+    });
+
+    if (text) {
+      const svg = buildTextOverlaySvg(text, size);
+      pipeline = pipeline.composite([{ input: Buffer.from(svg), top: 0, left: 0 }]);
+    }
+
+    return await pipeline.jpeg({ quality: 85 }).toBuffer();
   } catch {
     return null;
   }

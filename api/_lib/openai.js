@@ -304,3 +304,54 @@ export function parseRewrite(text) {
   return { title, content };
 }
 
+/**
+ * Generates a short (3-6 word) punchy Romanian teaser phrase for a Facebook image overlay.
+ * Each call produces a unique intriguing phrase based on the article title.
+ * Returns null on failure so callers can fall back to the pool.
+ */
+export async function generateImageTeaser({ title } = {}) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || !title) return null;
+
+  const prompt = [
+    "Generează EXACT O singură expresie scurtă în română (3-6 cuvinte) pentru a fi afișată pe o imagine de știre pe Facebook.",
+    "Expresia trebuie să:",
+    "- Creeze curiozitate și să invite la click (clickbait ușor)",
+    "- Fie legată de subiectul articolului",
+    "- Fie scurtă, puternică și să termine cu semn de exclamare sau puncte de suspensie",
+    "- NU repete titlul articolului",
+    "- NU conțină ghilimele sau explicații",
+    "Răspunde DOAR cu expresia, nimic altceva.",
+    "",
+    `Titlu articol: ${String(title).trim()}`,
+  ].join("\n");
+
+  const timeoutMs = 12000;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        temperature: 0.9,
+        max_tokens: 30,
+        messages: [
+          { role: "system", content: "Ești un editor de știri român care scrie texte scurte și captivante pentru rețele sociale." },
+          { role: "user", content: prompt },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const out = String(data?.choices?.[0]?.message?.content || "").trim();
+    return out || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+

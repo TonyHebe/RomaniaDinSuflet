@@ -33,6 +33,7 @@ async function getDeps() {
     rewriteWithAI: openai.rewriteWithAI,
     rewriteFacebookTitleWithAI: openai.rewriteFacebookTitleWithAI,
     titlesLookSame: openai.titlesLookSame,
+    generateImageTeaser: openai.generateImageTeaser,
     // facebook
     commentOnFacebookPost: facebook.commentOnFacebookPost,
     getFacebookPostInfo: facebook.getFacebookPostInfo,
@@ -45,6 +46,7 @@ async function getDeps() {
     sleep: facebook.sleep,
     // image processing
     cropToSquare: imageProcess.cropToSquare,
+    pickFallbackTeaser: imageProcess.pickFallbackTeaser,
   };
 
   return _deps;
@@ -209,6 +211,8 @@ export default async function handler(req, res) {
       postLinkToFacebook,
       sleep,
       cropToSquare,
+      pickFallbackTeaser,
+      generateImageTeaser,
     } = await getDeps();
 
     // Process ONE pending source URL per call (safe + retryable).
@@ -455,9 +459,17 @@ export default async function handler(req, res) {
           if (imageUrl) {
             fbMode = "photo";
             try {
-              // Crop to 1080x1080 square before uploading to Facebook.
+              // Generate a short punchy teaser for the image overlay.
+              // Try AI first; fall back to deterministic pool phrase.
+              let imageTeaser = null;
+              try {
+                imageTeaser = await generateImageTeaser({ title: finalTitle });
+              } catch { /* ignore */ }
+              if (!imageTeaser) imageTeaser = pickFallbackTeaser(finalTitle);
+
+              // Crop to 1080x1080 square and overlay the teaser bar before uploading.
               // Falls back to URL-based upload if processing fails.
-              const croppedBuffer = await cropToSquare(imageUrl);
+              const croppedBuffer = await cropToSquare(imageUrl, 1080, imageTeaser);
               let resp;
               if (croppedBuffer) {
                 resp = await postPhotoBufferToFacebook({ buffer: croppedBuffer, caption: fbPostTitle });
