@@ -1,13 +1,14 @@
 let _deps = null;
 async function getDeps() {
   if (_deps) return _deps;
-  const [articles, sourceQueue, scrape, blocklist, openai, facebook] = await Promise.all([
+  const [articles, sourceQueue, scrape, blocklist, openai, facebook, imageProcess] = await Promise.all([
     import("../_lib/articles.js"),
     import("../_lib/sourceQueue.js"),
     import("../_lib/scrape.js"),
     import("../_lib/blocklist.js"),
     import("../_lib/openai.js"),
     import("../_lib/facebook.js"),
+    import("../_lib/imageProcess.js"),
   ]);
 
   _deps = {
@@ -39,8 +40,11 @@ async function getDeps() {
     isFacebookPermissionConfigError: facebook.isFacebookPermissionConfigError,
     isFacebookTokenExpiredError: facebook.isFacebookTokenExpiredError,
     postPhotoToFacebook: facebook.postPhotoToFacebook,
+    postPhotoBufferToFacebook: facebook.postPhotoBufferToFacebook,
     postLinkToFacebook: facebook.postLinkToFacebook,
     sleep: facebook.sleep,
+    // image processing
+    cropToSquare: imageProcess.cropToSquare,
   };
 
   return _deps;
@@ -201,8 +205,10 @@ export default async function handler(req, res) {
       getFacebookPostInfo,
       tryMakeFacebookPostPublic,
       postPhotoToFacebook,
+      postPhotoBufferToFacebook,
       postLinkToFacebook,
       sleep,
+      cropToSquare,
     } = await getDeps();
 
     // Process ONE pending source URL per call (safe + retryable).
@@ -449,7 +455,15 @@ export default async function handler(req, res) {
           if (imageUrl) {
             fbMode = "photo";
             try {
-              const resp = await postPhotoToFacebook({ imageUrl, caption: fbPostTitle });
+              // Crop to 1080x1080 square before uploading to Facebook.
+              // Falls back to URL-based upload if processing fails.
+              const croppedBuffer = await cropToSquare(imageUrl);
+              let resp;
+              if (croppedBuffer) {
+                resp = await postPhotoBufferToFacebook({ buffer: croppedBuffer, caption: fbPostTitle });
+              } else {
+                resp = await postPhotoToFacebook({ imageUrl, caption: fbPostTitle });
+              }
               fbPostId = resp?.postId || null;
               fbPhotoId = resp?.photoId || null;
               fbRaw = resp?.raw || null;

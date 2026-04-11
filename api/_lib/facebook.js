@@ -162,6 +162,51 @@ export async function getFacebookPhotoPageStoryId(photoId, { maxAttempts = 6 } =
   return null;
 }
 
+/**
+ * Upload a pre-processed image Buffer directly to Facebook (multipart/form-data).
+ * Used when we have a cropped/resized image in memory and don't want to re-host it.
+ */
+export async function postPhotoBufferToFacebook({ buffer, caption } = {}) {
+  const pageId = mustGetEnv("FB_PAGE_ID");
+  const token = mustGetEnv("FB_PAGE_TOKEN");
+  if (!buffer || !Buffer.isBuffer(buffer)) throw new Error("Missing image buffer");
+
+  const form = new FormData();
+  form.append("source", new Blob([buffer], { type: "image/jpeg" }), "photo.jpg");
+  form.append("caption", caption || "");
+  form.append("published", "true");
+  form.append("no_story", "false");
+  form.append("access_token", token);
+
+  const base = "https://graph.facebook.com/v21.0";
+  const url = `${base}/${pageId}/photos`;
+  const timeoutMs = Number.parseInt(process.env.FB_TIMEOUT_MS || "30000", 10);
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(new Error("Facebook timeout")), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, { method: "POST", body: form, signal: controller.signal });
+  } finally {
+    clearTimeout(t);
+  }
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.error) {
+    if (json?.error) throw new FacebookGraphError(json.error, { status: res.status });
+    throw new FacebookGraphError(json, { status: res.status });
+  }
+
+  let postId = json?.post_id || null;
+  const photoId = json?.id || null;
+  if (!postId && photoId) {
+    try {
+      postId = await getFacebookPhotoPageStoryId(photoId, { maxAttempts: 6 });
+    } catch {
+      // ignore
+    }
+  }
+  return { postId, photoId, raw: json };
+}
+
 export async function postPhotoToFacebook({ imageUrl, caption } = {}) {
   const pageId = mustGetEnv("FB_PAGE_ID");
   const token = mustGetEnv("FB_PAGE_TOKEN");
