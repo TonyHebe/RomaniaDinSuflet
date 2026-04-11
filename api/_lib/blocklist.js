@@ -25,8 +25,11 @@ export function getBlockedTitleSubstrings() {
   return parseCsvEnv("BLOCKED_TITLE_SUBSTRINGS");
 }
 
+const HARDCODED_BLOCKED_HOSTS = ["cancan.ro"];
+
 export function getBlockedSourceHosts() {
-  return parseCsvEnv("BLOCKED_SOURCE_HOSTS").map((h) => h.toLowerCase());
+  const fromEnv = parseCsvEnv("BLOCKED_SOURCE_HOSTS").map((h) => h.toLowerCase());
+  return Array.from(new Set([...HARDCODED_BLOCKED_HOSTS, ...fromEnv]));
 }
 
 function hostMatches(blockedHost, actualHost) {
