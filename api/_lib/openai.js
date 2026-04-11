@@ -62,38 +62,42 @@ export async function rewriteWithAI({
   const apiKey = mustGetKey();
 
   const sourceContent = String(content || "").trim().slice(0, 12000);
-  const sourceCharCount = sourceContent.length;
-  const minChars = Math.max(300, Math.floor(sourceCharCount * 0.9));
-  const maxChars = Math.max(minChars + 50, Math.ceil(sourceCharCount * 1.1));
-  // Rough heuristic: ~4 chars/token for Romanian prose.
-  const maxTokens = Math.min(4096, Math.max(900, Math.ceil(maxChars / 3)));
+
+  // Target 800-1000 words for AdSense compliance (~4800-6500 Romanian chars).
+  // Always aim for at least 4800 chars regardless of source length.
+  const minChars = 4800;
+  const maxChars = 6500;
+  // ~3.5 chars/token for Romanian; generous ceiling so the model isn't cut off.
+  const maxTokens = 2400;
 
   const prompt = [
-    "Rescrie articolul în limba română, clar și complet, fără să copiezi fraze întregi.",
-    "IMPORTANT: Nu rezuma și nu scurta textul. Păstrează toate ideile și detaliile din sursă.",
-    `Țintește o lungime a conținutului (fără titlu) între ${minChars} și ${maxChars} caractere (aprox. aceeași lungime ca sursa).`,
-    "Nu adăuga informații noi și nu inventa detalii; doar restructurează și parafrazează.",
-    "Păstrează corect numele proprii, datele, cifrele și citatele (parafrazate) din sursă.",
-    "Titlul trebuie să fie RESCRIS (parafrazat) și să NU fie identic cu titlul sursă.",
-    "Nu folosi cuvântul „TITLU” ca text în răspuns.",
-    "Returnează exact în acest format:",
-    "Linia 1: (titlu rescris, max 12-14 cuvinte)",
-    "Linia 2: (goală)",
-    "Restul: conținutul articolului (paragrafe separate prin linii goale).",
-    "",
-    `Categorie: ${category}`,
-    "",
-    `Titlu sursă: ${title || ""}`.trim(),
-    previousBadTitle ? `Titlu respins (nu-l folosi): ${previousBadTitle}` : null,
-    "",
-    "Conținut sursă:",
-    sourceContent,
+    `Esti un redactor de stiri roman. Rescrie si EXTINDE articolul de mai jos in limba romana.
+
+REGULI OBLIGATORII:
+- Continutul final (fara titlu) trebuie sa aiba MINIM ${minChars} caractere (aprox. 800 de cuvinte). Daca sursa e scurta, extinde cu context, explicatii si analiza.
+- Nu copia fraze intregi din sursa; parafraza si restructureaza.
+- Pastreaza corect: nume proprii, date, cifre, citate parafrazate.
+- Titlul trebuie RESCRIS; sa nu fie identic cu titlul sursa.
+- Nu inventa fapte sau persoane care nu apar in text.
+
+STRUCTURA OBLIGATORIE:
+Linia 1: titlul rescris (max 12-14 cuvinte)
+Linia 2: goala
+Paragrafe 1-N: corpul articolului extins si detaliat (paragrafe separate prin linii goale)
+Ultimul paragraf: o sectiune care incepe cu 'De ce conteaza?' urmata de 2-3 propozitii despre relevanta stirii pentru cititorii din Romania (context, impact, ce urmeaza).
+
+Categorie: ${category}
+
+Titlu sursa: ${title || ""}${previousBadTitle ? "\nTitlu respins (nu-l folosi): " + previousBadTitle : ""}
+
+Continut sursa:
+${sourceContent}`,
   ]
     .filter(Boolean)
     .join("\n");
 
   // Keep this below the serverless maxDuration and leave room for scraping/DB.
-  const timeoutMs = Number.parseInt(process.env.OPENAI_TIMEOUT_MS || "45000", 10);
+  const timeoutMs = Number.parseInt(process.env.OPENAI_TIMEOUT_MS || "55000", 10);
   const retries = Number.parseInt(process.env.OPENAI_RETRIES || "2", 10);
   const maxAttempts = Math.max(1, (Number.isFinite(retries) ? retries : 2) + 1);
 
@@ -113,10 +117,10 @@ export async function rewriteWithAI({
         },
         body: JSON.stringify({
           model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-          temperature: 0.4,
+          temperature: 0.5,
           max_tokens: maxTokens,
           messages: [
-            { role: "system", content: "You are a helpful Romanian news editor." },
+            { role: "system", content: "Esti un redactor senior de stiri roman. Scrii articole clare, echilibrate si bine documentate, de minim 800 de cuvinte." },
             { role: "user", content: prompt },
           ],
         }),
