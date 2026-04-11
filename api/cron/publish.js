@@ -55,7 +55,7 @@ async function getDeps() {
 // Vercel: allow enough time for scrape + (optional) OpenAI + (optional) Facebook.
 // Without this, a slow upstream can cause `FUNCTION_INVOCATION_FAILED`.
 export const config = {
-  maxDuration: 60,
+  maxDuration: 120,
 };
 
 class ConfigError extends Error {
@@ -459,13 +459,8 @@ export default async function handler(req, res) {
           if (imageUrl) {
             fbMode = "photo";
             try {
-              // Generate a short punchy teaser for the image overlay.
-              // Try AI first; fall back to deterministic pool phrase.
-              let imageTeaser = null;
-              try {
-                imageTeaser = await generateImageTeaser({ title: finalTitle });
-              } catch { /* ignore */ }
-              if (!imageTeaser) imageTeaser = pickFallbackTeaser(finalTitle);
+              // Pick a teaser from the pool (deterministic by title hash — different per article).
+              const imageTeaser = pickFallbackTeaser(finalTitle);
 
               // Crop to 1080x1080 square and overlay the teaser bar before uploading.
               // Falls back to URL-based upload if processing fails.
