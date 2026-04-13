@@ -5,7 +5,7 @@ const FEEDS = [
   { name: "ciao-news", url: "https://ciao.ro/news/feed/" },
   { name: "unica-stiri", url: "https://www.unica.ro/stiri/feed" },
   { name: "jli-stiri", url: "https://jli.ro/category/stiri/feed/" },
-  { name: "capital-actualitate", url: "https://www.capital.ro/rss/" },
+  // capital.ro removed — returns 403 (blocks scrapers)
 ];
 
 function readIntEnv(name, fallback) {
