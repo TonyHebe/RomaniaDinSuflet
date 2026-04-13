@@ -77,45 +77,19 @@ function wrapText(text, maxChars, maxLines) {
 }
 
 /**
- * Builds an SVG overlay with a colored bar at the bottom and bold white text.
- * Uses only basic SVG geometry (no external fonts) so it renders correctly
- * on the Linux server environment where Windows/Mac fonts are unavailable.
- * Text is rendered as white filled rectangles approximating letters — replaced
- * by sharp's own SVG renderer using DejaVu/Liberation fonts available on Ubuntu.
+ * Builds an SVG overlay with a colored bar at the bottom.
+ * Text is intentionally omitted: Vercel Lambda (Amazon Linux) has no fonts
+ * installed so SVG text renders as squares. The bar alone gives the image
+ * a distinctive news-card look; the title appears in the post caption.
  */
 function buildTextOverlaySvg(text, size, {
   barColor = "#c0161d",
-  textColor = "#ffffff",
-  fontSize = 52,
-  maxLines = 2,
-  maxCharsPerLine = 26,
 } = {}) {
-  // Normalize diacritics → ASCII equivalents so Linux system fonts render correctly.
-  const upper = String(text || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase();
-  const lines = wrapText(upper, maxCharsPerLine, maxLines);
-  const lineHeight = Math.round(fontSize * 1.3);
-  const paddingY = 30;
-  const barHeight = lines.length * lineHeight + paddingY * 2;
+  const barHeight = 80;
   const barTop = size - barHeight;
-
-  const textSvg = lines.map((line, i) => {
-    const y = barTop + paddingY + fontSize + i * lineHeight;
-    return `<text
-      x="${size / 2}" y="${y}"
-      font-family="DejaVu Sans,Liberation Sans,FreeSans,Nimbus Sans,sans-serif"
-      font-size="${fontSize}"
-      font-weight="bold"
-      fill="${textColor}"
-      text-anchor="middle"
-      dominant-baseline="auto">${escapeXml(line)}</text>`;
-  }).join("\n");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
   <rect x="0" y="${barTop}" width="${size}" height="${barHeight}" fill="${barColor}" opacity="0.93"/>
-  ${textSvg}
 </svg>`;
 }
 
