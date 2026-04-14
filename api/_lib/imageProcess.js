@@ -68,7 +68,7 @@ const TOP_BAR_H = 100;
 const BOT_BAR_H = 130;
 const HOOK_FONT_SIZE = 56;
 const DETAIL_FONT_SIZE = 44;
-const BORDER_W = 18; // red side border width in px
+const BORDER_W = 45; // red side border width in px — thick enough for Facebook edge sampling
 
 function normaliseText(text) {
   return String(text || "")
