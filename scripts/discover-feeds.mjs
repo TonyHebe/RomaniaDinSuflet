@@ -1,7 +1,7 @@
 const FEEDS = [
   { name: "hotnews-politic", url: "https://hotnews.ro/c/actualitate/politic/feed/" },
   { name: "romaniatv-politica", url: "https://www.romaniatv.net/politica/feed" },
-  { name: "g4media-articole", url: "https://www.g4media.ro/articole/feed" },
+  // g4media removed — general articles feed includes unrelated business/tech content
   { name: "ciao-news", url: "https://ciao.ro/news/feed/" },
   { name: "unica-stiri", url: "https://www.unica.ro/stiri/feed" },
   { name: "jli-stiri", url: "https://jli.ro/category/stiri/feed/" },
