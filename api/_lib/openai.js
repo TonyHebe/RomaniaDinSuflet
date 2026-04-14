@@ -336,7 +336,7 @@ REGULI STRICTE pentru "hook" - alege DOAR pe baza continutului real al articolul
 - NU folosi TRAGEDIE daca nimeni nu a murit sau nu s-a intamplat ceva grav
 
 1. "hook" - 2-4 cuvinte care REFLECTA CORECT tonul articolului
-2. "detail" - 5-9 cuvinte SPECIFICE despre ce e vorba in articol, fara diacritice
+2. "detail" - MAXIM 6 cuvinte SPECIFICE despre ce e vorba in articol, fara diacritice
 
 Titlu: ${String(title).trim()}
 
