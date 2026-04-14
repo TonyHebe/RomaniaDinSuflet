@@ -520,3 +520,94 @@ a {
     font-size: 18px;
   }
 }
+
+/* ── Contact form ── */
+.contact-block {
+  max-width: 560px;
+}
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+.contact-form input,
+.contact-form textarea {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--bg);
+  resize: vertical;
+}
+.contact-form input:focus,
+.contact-form textarea:focus {
+  outline: 2px solid #c0161d;
+  border-color: transparent;
+}
+.contact-form button {
+  align-self: flex-start;
+  padding: 12px 28px;
+  background: #c0161d;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.contact-form button:hover { background: #a01018; }
+.contact-thanks { color: #16a34a; font-weight: 600; margin-top: 12px; }
+
+/* ── Cookie banner ── */
+.cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  color: #f5f5f5;
+  z-index: 9999;
+  padding: 16px 20px;
+}
+.cookie-banner[hidden] { display: none; }
+.cookie-inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.cookie-inner p {
+  margin: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.cookie-inner a { color: #f87171; text-decoration: underline; }
+.cookie-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.cookie-btn-accept {
+  padding: 9px 22px;
+  background: #c0161d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cookie-btn-accept:hover { background: #a01018; }
+.cookie-btn-decline {
+  padding: 9px 22px;
+  background: transparent;
+  color: #ccc;
+  border: 1px solid #555;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.cookie-btn-decline:hover { border-color: #999; color: #fff; }

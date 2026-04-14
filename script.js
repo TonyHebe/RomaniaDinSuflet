@@ -262,3 +262,26 @@
     loadStiri();
   });
 })();
+
+// ── Cookie consent ──
+function acceptCookies() {
+  localStorage.setItem("cookie_consent", "accepted");
+  document.getElementById("cookie-banner").hidden = true;
+}
+function declineCookies() {
+  localStorage.setItem("cookie_consent", "declined");
+  document.getElementById("cookie-banner").hidden = true;
+}
+(function initCookieBanner() {
+  if (!localStorage.getItem("cookie_consent")) {
+    const banner = document.getElementById("cookie-banner");
+    if (banner) banner.hidden = false;
+  }
+})();
+
+// ── Contact form ──
+function handleContactForm(e) {
+  e.preventDefault();
+  document.getElementById("contact-form").hidden = true;
+  document.getElementById("contact-thanks").hidden = false;
+}
