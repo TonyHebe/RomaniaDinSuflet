@@ -127,7 +127,7 @@ function buildOverlaySvg(hook, detail, size) {
   if (hook) {
     const norm = normaliseText(hook);
     const w = measureTextWidth(norm, HOOK_FONT_SIZE);
-    const x = Math.max(BORDER_W + 10, (size - w) / 2);
+    const x = Math.max(BORDER_W + 4, (size - w) / 2);
     const y = Math.floor(TOP_BAR_H / 2) + Math.floor(HOOK_FONT_SIZE / 2) - 4;
     const pathEl = textToSvgPath(norm, x, y, HOOK_FONT_SIZE, "white");
     content += `<rect x="0" y="0" width="${size}" height="${TOP_BAR_H}" fill="#c0161d" opacity="0.95"/>`;
@@ -136,14 +136,14 @@ function buildOverlaySvg(hook, detail, size) {
 
   if (detail) {
     const barTop = size - BOT_BAR_H;
-    const lines = wrapText(normaliseText(detail), 22, 3);
+    const lines = wrapText(normaliseText(detail), 28, 3);
     const lineSpacing = DETAIL_FONT_SIZE + 10;
     const totalH = lines.length * lineSpacing;
     const startY = barTop + Math.floor((BOT_BAR_H - totalH) / 2) + DETAIL_FONT_SIZE;
     content += `<rect x="0" y="${barTop}" width="${size}" height="${BOT_BAR_H}" fill="#1a1a1a" opacity="0.92"/>`;
     for (let i = 0; i < lines.length; i++) {
       const lw = measureTextWidth(lines[i], DETAIL_FONT_SIZE);
-      const x = Math.max(BORDER_W + 10, (size - lw) / 2);
+      const x = Math.max(BORDER_W + 4, (size - lw) / 2);
       const y = startY + i * lineSpacing;
       const pathEl = textToSvgPath(lines[i], x, y, DETAIL_FONT_SIZE, "white");
       if (pathEl) content += pathEl;
