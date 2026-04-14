@@ -324,10 +324,19 @@ export async function generateImageTeaser({ title } = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !title) return null;
 
-  const prompt = `Esti un editor de stiri roman. Genereaza un overlay de imagine pentru Facebook format din 2 randuri:
+  const prompt = `Esti un editor de stiri roman. Genereaza un overlay de imagine pentru Facebook format din 2 randuri.
 
-1. "hook" - 2-4 cuvinte, eticheta urgenta/emotionanta (ex: "ULTIMA ORA", "SOC TOTAL", "BOMBA ZILEI", "INCREDIBIL", "TRAGEDIE", "VICTORIE")
-2. "detail" - 5-9 cuvinte SPECIFICE care spun exact despre ce e vorba in articol, fara diacritice (ex: "DIN PACATE E VORBA DE CRISTI CHIVU", "INCENDIU DEVASTATOR IN CENTRUL CAPITALEI")
+REGULI STRICTE pentru "hook" - alege DOAR pe baza continutului real al articolului:
+- Moarte, accident, catastrofa → "TRAGEDIE" sau "DOLIU"
+- Scandal politic, coruptie, dezvăluire → "SCANDAL TOTAL" sau "DEZVALUIRE BOMBA"
+- Lege noua, amenda, regula, decizie → "ATENTIE!" sau "IMPORTANT!" sau "SOCANT!"
+- Stire de ultima ora urgenta → "ULTIMA ORA!"
+- Victorie, veste buna → "VESTE BUNA!" sau "VICTORIE!"
+- Stire surprinzatoare/neasteptata → "INCREDIBIL!" sau "SOC TOTAL!"
+- NU folosi TRAGEDIE daca nimeni nu a murit sau nu s-a intamplat ceva grav
+
+1. "hook" - 2-4 cuvinte care REFLECTA CORECT tonul articolului
+2. "detail" - 5-9 cuvinte SPECIFICE despre ce e vorba in articol, fara diacritice
 
 Titlu: ${String(title).trim()}
 
