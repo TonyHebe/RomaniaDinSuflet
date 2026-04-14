@@ -183,6 +183,10 @@ a {
   border-top: 1px solid var(--border);
 }
 
+.hero + .section {
+  border-top: none;
+}
+
 .ad-section {
   padding: 18px 0;
   border-top: 1px solid var(--border);
