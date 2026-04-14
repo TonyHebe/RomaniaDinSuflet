@@ -1,13 +1,30 @@
 import sharp from "sharp";
+import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import opentype from "opentype.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FONT_PATH = resolve(__dirname, "fonts", "Roboto-Bold.ttf");
 
-// Fallback teaser pool — different phrase per article (deterministic by title hash).
+// Load font once at startup — opentype.js reads the TTF and can generate SVG paths
+// for any string, so the SVG renderer (librsvg) never needs a font at all.
+let _font = null;
+function getFont() {
+  if (!_font) {
+    try {
+      const buf = readFileSync(FONT_PATH);
+      _font = opentype.parse(buf.buffer);
+    } catch {
+      _font = null;
+    }
+  }
+  return _font;
+}
+
+// Fallback teaser pool — deterministic per article title.
 const TEASER_POOL = [
-  "NIMENI NU S-A ASTEPTAT LA ASTA!",
+  "NIMENI NU S-A ASTEPTAT!",
   "A IESIT TOTUL LA IVEALA!",
   "BOMBA ZILEI!",
   "TOTUL S-A DAT PESTE CAP!",
@@ -16,7 +33,7 @@ const TEASER_POOL = [
   "NIMENI NU STIA!",
   "ADEVARUL A IESIT LA SUPRAFATA!",
   "INCREDIBIL CE S-A INTAMPLAT!",
-  "TOATA LUMEA VORBESTE DESPRE ASTA!",
+  "TOATA LUMEA VORBESTE!",
   "MARE SURPRIZA!",
   "SITUATIE FARA PRECEDENT!",
   "REACTIE NEASTEPTATA!",
@@ -38,12 +55,10 @@ export function pickFallbackTeaser(title) {
 
 const DEFAULT_SIZE = 1080;
 const FETCH_TIMEOUT_MS = 15000;
-const BAR_HEIGHT = 110;
-const FONT_SIZE = 48;
+const BAR_HEIGHT = 120;
+const FONT_SIZE = 52;
 
-/**
- * Normalise text for overlay: strip diacritics, uppercase, trim.
- */
+/** Strip diacritics and uppercase — safe fallback if font lacks glyphs. */
 function normaliseText(text) {
   return String(text || "")
     .normalize("NFD")
@@ -52,10 +67,7 @@ function normaliseText(text) {
     .trim();
 }
 
-/**
- * Simple word-wrap: splits text into at most `maxLines` lines,
- * each no longer than `maxChars` characters.
- */
+/** Word-wrap into at most maxLines lines, each ≤ maxChars characters. */
 function wrapText(text, maxChars, maxLines) {
   const words = String(text || "").trim().split(/\s+/);
   const lines = [];
@@ -80,37 +92,39 @@ function wrapText(text, maxChars, maxLines) {
 }
 
 /**
- * Renders a text line as a PNG buffer using sharp's built-in Pango text renderer.
- * Pango markup sets the foreground colour to white so no post-processing is needed.
+ * Converts a text string to an SVG <path> element using the TTF font.
+ * Returns null if the font failed to load.
  */
-async function renderTextLine(line, width) {
+function textToSvgPath(text, x, y, fontSize, fill = "white") {
+  const font = getFont();
+  if (!font) return null;
   try {
-    const safe = String(line)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    return await sharp({
-      text: {
-        text: `<span foreground="white" font_desc="Bold ${FONT_SIZE}">${safe}</span>`,
-        fontfile: FONT_PATH,
-        rgba: true,
-        width,
-        height: FONT_SIZE + 24,
-        align: "centre",
-        dpi: 96,
-      },
-    })
-      .png()
-      .toBuffer();
+    const path = font.getPath(text, x, y, fontSize);
+    const d = path.toPathData(2);
+    if (!d) return null;
+    return `<path d="${d}" fill="${fill}" />`;
   } catch {
     return null;
   }
 }
 
 /**
- * Fetches an image from a URL, center-crops it to a square, overlays a red bar
- * with bold white text at the bottom, and returns a JPEG Buffer.
- * Falls back gracefully at each step so nothing blocks publishing.
+ * Measures the width of a string in pixels using the TTF metrics.
+ */
+function measureTextWidth(text, fontSize) {
+  const font = getFont();
+  if (!font) return text.length * fontSize * 0.6; // rough fallback
+  try {
+    return font.getAdvanceWidth(text, fontSize);
+  } catch {
+    return text.length * fontSize * 0.6;
+  }
+}
+
+/**
+ * Fetches an image, center-crops to square, adds a red bar with white text,
+ * and returns a JPEG Buffer. Returns null on any failure so the caller can
+ * fall back to the original URL.
  */
 export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, text = null) {
   if (!imageUrl) return null;
@@ -125,8 +139,7 @@ export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, text = null) {
       headers: { "user-agent": "Mozilla/5.0 (compatible; RDS-ImageProcess/1.0)" },
     });
     if (!res.ok) return null;
-    const ab = await res.arrayBuffer();
-    buffer = Buffer.from(ab);
+    buffer = Buffer.from(await res.arrayBuffer());
   } catch {
     return null;
   } finally {
@@ -134,44 +147,39 @@ export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, text = null) {
   }
 
   try {
-    // 1. Crop to square.
-    const cropped = await sharp(buffer)
-      .resize(size, size, { fit: "cover", position: "centre" })
-      .toBuffer();
-
-    const composites = [];
-
-    // 2. Red bar at bottom (plain SVG rect — always works, no fonts needed).
     const barTop = size - BAR_HEIGHT;
-    const barSvg = Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
-      `<rect x="0" y="${barTop}" width="${size}" height="${BAR_HEIGHT}" fill="#c0161d" opacity="0.93"/>` +
-      `</svg>`
-    );
-    composites.push({ input: barSvg, top: 0, left: 0 });
 
-    // 3. Text lines rendered via Pango (sharp's native text input + TTF font).
+    // Build SVG composited over the image.
+    // The red bar is a plain rect; text is rendered as <path> elements
+    // generated by opentype.js — no system fonts needed by librsvg.
+    let textPaths = "";
     if (text) {
       const normalised = normaliseText(text);
-      const lines = wrapText(normalised, 28, 2);
-      const lineSpacing = FONT_SIZE + 12;
-      const totalTextHeight = lines.length * lineSpacing;
-      const startY = barTop + Math.floor((BAR_HEIGHT - totalTextHeight) / 2);
+      const lines = wrapText(normalised, 22, 2);
+      const lineSpacing = FONT_SIZE + 10;
+      const totalTextH = lines.length * lineSpacing;
+      const baselineStart = barTop + Math.floor((BAR_HEIGHT - totalTextH) / 2) + FONT_SIZE;
 
       for (let i = 0; i < lines.length; i++) {
-        const textBuf = await renderTextLine(lines[i], size - 60);
-        if (!textBuf) continue;
-        const meta = await sharp(textBuf).metadata();
-        const tw = meta.width || (size - 60);
-        const tx = Math.max(0, Math.floor((size - tw) / 2));
-        const ty = Math.max(0, startY + i * lineSpacing);
-
-        composites.push({ input: textBuf, top: ty, left: tx });
+        const line = lines[i];
+        const lineWidth = measureTextWidth(line, FONT_SIZE);
+        const x = Math.max(0, (size - lineWidth) / 2);
+        const y = baselineStart + i * lineSpacing;
+        const pathEl = textToSvgPath(line, x, y, FONT_SIZE, "white");
+        if (pathEl) textPaths += pathEl + "\n";
       }
     }
 
-    return await sharp(cropped)
-      .composite(composites)
+    const svg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
+      `<rect x="0" y="${barTop}" width="${size}" height="${BAR_HEIGHT}" fill="#c0161d" opacity="0.93"/>` +
+      textPaths +
+      `</svg>`
+    );
+
+    return await sharp(buffer)
+      .resize(size, size, { fit: "cover", position: "centre" })
+      .composite([{ input: svg, top: 0, left: 0 }])
       .jpeg({ quality: 85 })
       .toBuffer();
   } catch {
