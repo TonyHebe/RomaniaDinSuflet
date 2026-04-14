@@ -48,6 +48,7 @@ async function getDeps() {
     // image processing
     cropToSquare: imageProcess.cropToSquare,
     pickFallbackTeaser: imageProcess.pickFallbackTeaser,
+    buildFallbackTeaser: imageProcess.buildFallbackTeaser,
     // storage
     uploadImageBuffer: storage.uploadImageBuffer,
   };
@@ -215,6 +216,7 @@ export default async function handler(req, res) {
       sleep,
       cropToSquare,
       pickFallbackTeaser,
+      buildFallbackTeaser,
       generateImageTeaser,
       uploadImageBuffer,
     } = await getDeps();
@@ -406,7 +408,12 @@ export default async function handler(req, res) {
         if (finalImageUrl) {
           const rawImageUrl = normalizeOgImageUrl(finalImageUrl, siteUrl);
           if (rawImageUrl) {
-            const teaser = pickFallbackTeaser(finalTitle);
+            // Try AI-generated teaser first, fall back to deterministic title-based teaser.
+            let teaser = null;
+            if (process.env.OPENAI_API_KEY) {
+              try { teaser = await generateImageTeaser({ title: finalTitle }); } catch { /* ignore */ }
+            }
+            if (!teaser) teaser = buildFallbackTeaser(finalTitle);
             croppedBufferForArticle = await cropToSquare(rawImageUrl, 1080, teaser);
             if (croppedBufferForArticle) {
               const safeSlug = String(finalTitle)
@@ -494,7 +501,7 @@ export default async function handler(req, res) {
               // Reuse the buffer we already processed for the article (if available),
               // otherwise process now. Falls back to URL-based upload if both fail.
               const croppedBuffer = croppedBufferForArticle ||
-                await cropToSquare(rawImageForFb, 1080, pickFallbackTeaser(finalTitle));
+                await cropToSquare(rawImageForFb, 1080, buildFallbackTeaser(finalTitle));
               let resp;
               if (croppedBuffer) {
                 resp = await postPhotoBufferToFacebook({ buffer: croppedBuffer, caption: fbPostTitle });

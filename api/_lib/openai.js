@@ -313,22 +313,25 @@ export function parseRewrite(text) {
  * Each call produces a unique intriguing phrase based on the article title.
  * Returns null on failure so callers can fall back to the pool.
  */
+/**
+ * Generates a two-part image overlay teaser from the article title.
+ * Returns { hook, detail } where:
+ *   hook   — short punchy category label (2-4 words, e.g. "ULTIMA ORA", "SOC TOTAL")
+ *   detail — specific phrase about the article topic (5-9 words, e.g. "DIN PACATE E VORBA DE CRISTI CHIVU")
+ * Returns null on failure so callers can build a fallback.
+ */
 export async function generateImageTeaser({ title } = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !title) return null;
 
-  const prompt = [
-    "Generează EXACT O singură expresie scurtă în română (3-6 cuvinte) pentru a fi afișată pe o imagine de știre pe Facebook.",
-    "Expresia trebuie să:",
-    "- Creeze curiozitate și să invite la click (clickbait ușor)",
-    "- Fie legată de subiectul articolului",
-    "- Fie scurtă, puternică și să termine cu semn de exclamare sau puncte de suspensie",
-    "- NU repete titlul articolului",
-    "- NU conțină ghilimele sau explicații",
-    "Răspunde DOAR cu expresia, nimic altceva.",
-    "",
-    `Titlu articol: ${String(title).trim()}`,
-  ].join("\n");
+  const prompt = `Esti un editor de stiri roman. Genereaza un overlay de imagine pentru Facebook format din 2 randuri:
+
+1. "hook" - 2-4 cuvinte, eticheta urgenta/emotionanta (ex: "ULTIMA ORA", "SOC TOTAL", "BOMBA ZILEI", "INCREDIBIL", "TRAGEDIE", "VICTORIE")
+2. "detail" - 5-9 cuvinte SPECIFICE care spun exact despre ce e vorba in articol, fara diacritice (ex: "DIN PACATE E VORBA DE CRISTI CHIVU", "INCENDIU DEVASTATOR IN CENTRUL CAPITALEI")
+
+Titlu: ${String(title).trim()}
+
+Raspunde DOAR cu JSON valid, fara diacritice, totul majuscule: {"hook":"...","detail":"..."}`;
 
   const timeoutMs = 12000;
   const controller = new AbortController();
@@ -339,10 +342,10 @@ export async function generateImageTeaser({ title } = {}) {
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        temperature: 0.9,
-        max_tokens: 30,
+        temperature: 0.7,
+        max_tokens: 80,
         messages: [
-          { role: "system", content: "Ești un editor de știri român care scrie texte scurte și captivante pentru rețele sociale." },
+          { role: "system", content: "Esti un editor de stiri roman. Raspunzi DOAR cu JSON valid." },
           { role: "user", content: prompt },
         ],
       }),
@@ -350,8 +353,14 @@ export async function generateImageTeaser({ title } = {}) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const out = String(data?.choices?.[0]?.message?.content || "").trim();
-    return out || null;
+    const raw = String(data?.choices?.[0]?.message?.content || "").trim()
+      .replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+    const json = JSON.parse(raw);
+    if (!json.hook || !json.detail) return null;
+    return {
+      hook: String(json.hook).toUpperCase().trim(),
+      detail: String(json.detail).toUpperCase().trim(),
+    };
   } catch {
     return null;
   } finally {

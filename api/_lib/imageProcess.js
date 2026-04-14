@@ -7,8 +7,6 @@ import opentype from "opentype.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FONT_PATH = resolve(__dirname, "fonts", "Roboto-Bold.ttf");
 
-// Load font once at startup — opentype.js reads the TTF and can generate SVG paths
-// for any string, so the SVG renderer (librsvg) never needs a font at all.
 let _font = null;
 function getFont() {
   if (!_font) {
@@ -22,52 +20,61 @@ function getFont() {
   return _font;
 }
 
-// Fallback teaser pool — deterministic per article title.
-const TEASER_POOL = [
-  "NIMENI NU S-A ASTEPTAT!",
-  "A IESIT TOTUL LA IVEALA!",
-  "BOMBA ZILEI!",
-  "TOTUL S-A DAT PESTE CAP!",
+// Fallback hook pool — deterministic per article title.
+const HOOK_POOL = [
+  "ULTIMA ORA!",
   "SOC TOTAL!",
-  "DEZVALUIRE EXPLOZIVA!",
-  "NIMENI NU STIA!",
-  "ADEVARUL A IESIT LA SUPRAFATA!",
-  "INCREDIBIL CE S-A INTAMPLAT!",
-  "TOATA LUMEA VORBESTE!",
-  "MARE SURPRIZA!",
-  "SITUATIE FARA PRECEDENT!",
+  "BOMBA ZILEI!",
+  "INCREDIBIL!",
+  "BREAKING NEWS!",
+  "ATENTIE!",
+  "ALERTA!",
+  "TRAGEDIE!",
+  "VICTORIE!",
+  "DECIZIE MAJORA!",
+  "LOVITURA ZILEI!",
+  "ANUNT BOMBA!",
+  "SCHIMBARE MAJORA!",
   "REACTIE NEASTEPTATA!",
   "DECIZIE DE ULTIMA ORA!",
-  "S-A AFLAT TOTUL!",
-  "LOVITURA ZILEI!",
-  "SCHIMBARE MAJORA!",
-  "NIMENI NU SE ASTEPTA!",
-  "TOTUL A EXPLODAT!",
-  "ANUNT BOMBA!",
 ];
 
 export function pickFallbackTeaser(title) {
   const str = String(title || "");
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
-  return TEASER_POOL[hash % TEASER_POOL.length];
+  return HOOK_POOL[hash % HOOK_POOL.length];
+}
+
+/**
+ * Builds a { hook, detail } teaser from the article title without OpenAI.
+ * hook  — deterministic pick from the pool
+ * detail — first 6 significant words of the title, normalised
+ */
+export function buildFallbackTeaser(title) {
+  const hook = pickFallbackTeaser(title);
+  const detail = String(title || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ").trim()
+    .split(" ").slice(0, 7).join(" ");
+  return { hook, detail };
 }
 
 const DEFAULT_SIZE = 1080;
 const FETCH_TIMEOUT_MS = 15000;
-const BAR_HEIGHT = 120;
-const FONT_SIZE = 52;
+const TOP_BAR_H = 100;
+const BOT_BAR_H = 130;
+const HOOK_FONT_SIZE = 56;
+const DETAIL_FONT_SIZE = 44;
 
-/** Strip diacritics and uppercase — safe fallback if font lacks glyphs. */
 function normaliseText(text) {
   return String(text || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .trim();
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase().trim();
 }
 
-/** Word-wrap into at most maxLines lines, each ≤ maxChars characters. */
 function wrapText(text, maxChars, maxLines) {
   const words = String(text || "").trim().split(/\s+/);
   const lines = [];
@@ -78,23 +85,14 @@ function wrapText(text, maxChars, maxLines) {
     if (test.length <= maxChars) {
       current = test;
     } else {
-      if (current) {
-        lines.push(current);
-        current = word.slice(0, maxChars);
-      } else {
-        lines.push(word.slice(0, maxChars));
-        current = "";
-      }
+      if (current) { lines.push(current); current = word.slice(0, maxChars); }
+      else { lines.push(word.slice(0, maxChars)); current = ""; }
     }
   }
   if (current && lines.length < maxLines) lines.push(current);
   return lines;
 }
 
-/**
- * Converts a text string to an SVG <path> element using the TTF font.
- * Returns null if the font failed to load.
- */
 function textToSvgPath(text, x, y, fontSize, fill = "white") {
   const font = getFont();
   if (!font) return null;
@@ -103,30 +101,62 @@ function textToSvgPath(text, x, y, fontSize, fill = "white") {
     const d = path.toPathData(2);
     if (!d) return null;
     return `<path d="${d}" fill="${fill}" />`;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-/**
- * Measures the width of a string in pixels using the TTF metrics.
- */
 function measureTextWidth(text, fontSize) {
   const font = getFont();
-  if (!font) return text.length * fontSize * 0.6; // rough fallback
-  try {
-    return font.getAdvanceWidth(text, fontSize);
-  } catch {
-    return text.length * fontSize * 0.6;
-  }
+  if (!font) return text.length * fontSize * 0.6;
+  try { return font.getAdvanceWidth(text, fontSize); }
+  catch { return text.length * fontSize * 0.6; }
 }
 
 /**
- * Fetches an image, center-crops to square, adds a red bar with white text,
- * and returns a JPEG Buffer. Returns null on any failure so the caller can
- * fall back to the original URL.
+ * Builds an SVG with:
+ *  - Top red bar with hook text (large, punchy)
+ *  - Bottom dark bar with detail text (specific to article)
  */
-export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, text = null) {
+function buildOverlaySvg(hook, detail, size) {
+  let content = "";
+
+  if (hook) {
+    const norm = normaliseText(hook);
+    const w = measureTextWidth(norm, HOOK_FONT_SIZE);
+    const x = Math.max(20, (size - w) / 2);
+    const y = Math.floor(TOP_BAR_H / 2) + Math.floor(HOOK_FONT_SIZE / 2) - 4;
+    const pathEl = textToSvgPath(norm, x, y, HOOK_FONT_SIZE, "white");
+    content += `<rect x="0" y="0" width="${size}" height="${TOP_BAR_H}" fill="#c0161d" opacity="0.95"/>`;
+    if (pathEl) content += pathEl;
+  }
+
+  if (detail) {
+    const barTop = size - BOT_BAR_H;
+    const lines = wrapText(normaliseText(detail), 24, 2);
+    const lineSpacing = DETAIL_FONT_SIZE + 10;
+    const totalH = lines.length * lineSpacing;
+    const startY = barTop + Math.floor((BOT_BAR_H - totalH) / 2) + DETAIL_FONT_SIZE;
+    content += `<rect x="0" y="${barTop}" width="${size}" height="${BOT_BAR_H}" fill="#1a1a1a" opacity="0.92"/>`;
+    for (let i = 0; i < lines.length; i++) {
+      const lw = measureTextWidth(lines[i], DETAIL_FONT_SIZE);
+      const x = Math.max(20, (size - lw) / 2);
+      const y = startY + i * lineSpacing;
+      const pathEl = textToSvgPath(lines[i], x, y, DETAIL_FONT_SIZE, "white");
+      if (pathEl) content += pathEl;
+    }
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">${content}</svg>`;
+}
+
+/**
+ * Fetches an image, center-crops to square, overlays hook + detail bars,
+ * and returns a JPEG Buffer. Returns null on any failure.
+ *
+ * @param {string} imageUrl
+ * @param {number} size
+ * @param {string|{hook:string,detail:string}|null} teaser
+ */
+export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, teaser = null) {
   if (!imageUrl) return null;
 
   const controller = new AbortController();
@@ -140,49 +170,29 @@ export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, text = null) {
     });
     if (!res.ok) return null;
     buffer = Buffer.from(await res.arrayBuffer());
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(t);
-  }
+  } catch { return null; }
+  finally { clearTimeout(t); }
 
   try {
-    const barTop = size - BAR_HEIGHT;
+    let hook = null;
+    let detail = null;
 
-    // Build SVG composited over the image.
-    // The red bar is a plain rect; text is rendered as <path> elements
-    // generated by opentype.js — no system fonts needed by librsvg.
-    let textPaths = "";
-    if (text) {
-      const normalised = normaliseText(text);
-      const lines = wrapText(normalised, 22, 2);
-      const lineSpacing = FONT_SIZE + 10;
-      const totalTextH = lines.length * lineSpacing;
-      const baselineStart = barTop + Math.floor((BAR_HEIGHT - totalTextH) / 2) + FONT_SIZE;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const lineWidth = measureTextWidth(line, FONT_SIZE);
-        const x = Math.max(0, (size - lineWidth) / 2);
-        const y = baselineStart + i * lineSpacing;
-        const pathEl = textToSvgPath(line, x, y, FONT_SIZE, "white");
-        if (pathEl) textPaths += pathEl + "\n";
+    if (teaser) {
+      if (typeof teaser === "string") {
+        // Legacy string — treat as hook only
+        hook = teaser;
+      } else if (typeof teaser === "object") {
+        hook = teaser.hook || null;
+        detail = teaser.detail || null;
       }
     }
 
-    const svg = Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
-      `<rect x="0" y="${barTop}" width="${size}" height="${BAR_HEIGHT}" fill="#c0161d" opacity="0.93"/>` +
-      textPaths +
-      `</svg>`
-    );
+    const svg = buildOverlaySvg(hook, detail, size);
 
     return await sharp(buffer)
       .resize(size, size, { fit: "cover", position: "centre" })
-      .composite([{ input: svg, top: 0, left: 0 }])
+      .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
       .jpeg({ quality: 85 })
       .toBuffer();
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
