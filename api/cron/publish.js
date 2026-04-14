@@ -9,6 +9,7 @@ async function getDeps() {
     import("../_lib/openai.js"),
     import("../_lib/facebook.js"),
     import("../_lib/imageProcess.js"),
+    import("../_lib/storage.js"),
   ]);
 
   _deps = {
@@ -47,6 +48,8 @@ async function getDeps() {
     // image processing
     cropToSquare: imageProcess.cropToSquare,
     pickFallbackTeaser: imageProcess.pickFallbackTeaser,
+    // storage
+    uploadImageBuffer: storage.uploadImageBuffer,
   };
 
   return _deps;
@@ -213,6 +216,7 @@ export default async function handler(req, res) {
       cropToSquare,
       pickFallbackTeaser,
       generateImageTeaser,
+      uploadImageBuffer,
     } = await getDeps();
 
     // Process ONE pending source URL per call (safe + retryable).
@@ -284,6 +288,7 @@ export default async function handler(req, res) {
       let finalTitle = "";
       let finalContent = "";
       let finalImageUrl = null;
+      let croppedBufferForArticle = null;
 
       // Retry-safe behavior:
       // If we already created the site article in a previous attempt, reuse it
@@ -318,6 +323,7 @@ export default async function handler(req, res) {
         finalTitle = scraped.title;
         finalContent = scraped.content;
         finalImageUrl = scraped.imageUrl || null;
+        job._originalImageUrl = finalImageUrl;
 
         const ai = {
           enabled: Boolean(process.env.OPENAI_API_KEY),
@@ -394,6 +400,28 @@ export default async function handler(req, res) {
           return;
         }
 
+        // Process image before inserting so the website also shows the
+        // cropped + overlay version (same as Facebook).
+        // If Blob is not configured or processing fails, fall back to original URL.
+        if (finalImageUrl) {
+          const rawImageUrl = normalizeOgImageUrl(finalImageUrl, siteUrl);
+          if (rawImageUrl) {
+            const teaser = pickFallbackTeaser(finalTitle);
+            croppedBufferForArticle = await cropToSquare(rawImageUrl, 1080, teaser);
+            if (croppedBufferForArticle) {
+              const safeSlug = String(finalTitle)
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+                .slice(0, 60) + "-" + Date.now();
+              const blobUrl = await uploadImageBuffer(
+                croppedBufferForArticle,
+                `articles/${safeSlug}.jpg`
+              );
+              if (blobUrl) finalImageUrl = blobUrl;
+            }
+          }
+        }
+
         publishedSlug = await insertArticle({
           title: finalTitle,
           content: finalContent,
@@ -454,21 +482,24 @@ export default async function handler(req, res) {
 
           // Prefer posting a photo + comment (better reach, link in comments).
           // Fallback to link post if no image, or if photo fails with publish_actions/permission error.
-          const imageUrl = normalizeOgImageUrl(finalImageUrl, siteUrl);
-          if (imageUrl) {
+          // Use original source URL for Facebook (not the Blob URL) so FB always
+          // gets a fetchable remote URL as fallback when no buffer is available.
+          const rawImageForFb = normalizeOgImageUrl(
+            (job._originalImageUrl || finalImageUrl),
+            siteUrl
+          );
+          if (rawImageForFb) {
             fbMode = "photo";
             try {
-              // Pick a teaser from the pool (deterministic by title hash — different per article).
-              const imageTeaser = pickFallbackTeaser(finalTitle);
-
-              // Crop to 1080x1080 square and overlay the teaser bar before uploading.
-              // Falls back to URL-based upload if processing fails.
-              const croppedBuffer = await cropToSquare(imageUrl, 1080, imageTeaser);
+              // Reuse the buffer we already processed for the article (if available),
+              // otherwise process now. Falls back to URL-based upload if both fail.
+              const croppedBuffer = croppedBufferForArticle ||
+                await cropToSquare(rawImageForFb, 1080, pickFallbackTeaser(finalTitle));
               let resp;
               if (croppedBuffer) {
                 resp = await postPhotoBufferToFacebook({ buffer: croppedBuffer, caption: fbPostTitle });
               } else {
-                resp = await postPhotoToFacebook({ imageUrl, caption: fbPostTitle });
+                resp = await postPhotoToFacebook({ imageUrl: rawImageForFb, caption: fbPostTitle });
               }
               fbPostId = resp?.postId || null;
               fbPhotoId = resp?.photoId || null;
