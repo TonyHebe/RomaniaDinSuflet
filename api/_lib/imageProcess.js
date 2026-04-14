@@ -68,7 +68,7 @@ const TOP_BAR_H = 100;
 const BOT_BAR_H = 185;
 const HOOK_FONT_SIZE = 56;
 const DETAIL_FONT_SIZE = 44;
-const BORDER_W = 45; // red side border width in px — thick enough for Facebook edge sampling
+const BORDER_W = 0; // side borders removed; kept as zero so text x-offset math still works
 
 function normaliseText(text) {
   return String(text || "")
@@ -118,16 +118,12 @@ function measureTextWidth(text, fontSize) {
  *  - Bottom dark bar with detail text (specific to article)
  */
 function buildOverlaySvg(hook, detail, size) {
-  // Red border on left and right sides — visible in Facebook feed when image is
-  // displayed slightly wider than square, matching the red bars top and bottom.
-  let content =
-    `<rect x="0" y="0" width="${BORDER_W}" height="${size}" fill="#c0161d"/>` +
-    `<rect x="${size - BORDER_W}" y="0" width="${BORDER_W}" height="${size}" fill="#c0161d"/>`;
+  let content = "";
 
   if (hook) {
     const norm = normaliseText(hook);
     const w = measureTextWidth(norm, HOOK_FONT_SIZE);
-    const x = Math.max(BORDER_W + 4, (size - w) / 2);
+    const x = Math.max(10, (size - w) / 2);
     const y = Math.floor(TOP_BAR_H / 2) + Math.floor(HOOK_FONT_SIZE / 2) - 4;
     const pathEl = textToSvgPath(norm, x, y, HOOK_FONT_SIZE, "white");
     content += `<rect x="0" y="0" width="${size}" height="${TOP_BAR_H}" fill="#c0161d" opacity="0.95"/>`;
@@ -143,7 +139,7 @@ function buildOverlaySvg(hook, detail, size) {
     content += `<rect x="0" y="${barTop}" width="${size}" height="${BOT_BAR_H}" fill="#1a1a1a" opacity="0.92"/>`;
     for (let i = 0; i < lines.length; i++) {
       const lw = measureTextWidth(lines[i], DETAIL_FONT_SIZE);
-      const x = Math.max(BORDER_W + 4, (size - lw) / 2);
+      const x = Math.max(10, (size - lw) / 2);
       const y = startY + i * lineSpacing;
       const pathEl = textToSvgPath(lines[i], x, y, DETAIL_FONT_SIZE, "white");
       if (pathEl) content += pathEl;
