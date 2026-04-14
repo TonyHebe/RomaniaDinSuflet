@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contact — Romania Din Suflet</title>
+    <meta name="description" content="Contactează-ne la Romania Din Suflet — suntem aici pentru orice întrebare sau sugestie." />
+    <meta name="adsense-client" content="ca-pub-9846184063862431" />
+    <meta name="google-adsense-account" content="ca-pub-9846184063862431" />
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="/_vercel/insights/script.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Sari la conținut</a>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="./" aria-label="Romania Din Suflet - Acasă">
+          <img class="brand-mark" src="./assets/logo.svg" width="40" height="40" alt="" aria-hidden="true" />
+          <div class="brand-text">
+            <span class="brand-name">Romania</span>
+            <span class="brand-sub">Din Suflet</span>
+          </div>
+        </a>
+
+        <button class="nav-toggle" type="button" aria-label="Deschide meniul" aria-controls="primary-nav" aria-expanded="false">
+          <span aria-hidden="true" class="nav-toggle-lines"></span>
+        </button>
+
+        <nav class="site-nav" aria-label="Navigație principală" id="primary-nav">
+          <a href="./#stiri">Știri</a>
+          <a href="./despre-noi.html">Despre noi</a>
+          <a href="./contact.html" aria-current="page">Contact</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="site-main">
+      <section class="hero" aria-labelledby="page-title">
+        <h1 id="page-title">Contact</h1>
+      </section>
+
+      <section class="section hero + .section" aria-labelledby="contact-title">
+        <div class="container">
+          <div class="section-head">
+            <h2 class="section-title" id="contact-title">Scrie-ne</h2>
+            <p class="section-muted">Ai o întrebare, o sugestie sau vrei să colaborezi? Suntem bucuroși să te auzim.</p>
+          </div>
+          <div class="contact-block">
+            <p class="section-muted">📧 <a href="mailto:contact@romaniadinsuflet.ro" style="text-decoration:underline;">contact@romaniadinsuflet.ro</a></p>
+            <form class="contact-form" id="contact-form" onsubmit="handleContactForm(event)">
+              <input type="text" name="name" placeholder="Numele tău" required />
+              <input type="email" name="email" placeholder="Adresa ta de email" required />
+              <textarea name="message" rows="5" placeholder="Mesajul tău..." required></textarea>
+              <button type="submit">Trimite mesajul</button>
+            </form>
+            <p class="contact-thanks" id="contact-thanks" hidden>✅ Mulțumim! Mesajul tău a fost înregistrat.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p class="footer-brand">Romania Din Suflet</p>
+        <p class="footer-muted">
+          © <span id="year"></span> Toate drepturile rezervate. |
+          <a href="./privacy.html" style="color: inherit; text-decoration: underline;">Politica de Confidențialitate</a>
+        </p>
+      </div>
+    </footer>
+
+    <div class="cookie-banner" id="cookie-banner" role="dialog" aria-label="Consimțământ cookie-uri" hidden>
+      <div class="cookie-inner">
+        <p>Folosim cookie-uri pentru a îmbunătăți experiența ta și pentru reclame relevante (Google AdSense).
+          <a href="./privacy.html">Află mai multe</a>
+        </p>
+        <div class="cookie-actions">
+          <button class="cookie-btn-accept" onclick="acceptCookies()">Accept</button>
+          <button class="cookie-btn-decline" onclick="declineCookies()">Refuz</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./script.js" defer></script>
+    <script>
+      function handleContactForm(e) {
+        e.preventDefault();
+        document.getElementById("contact-form").hidden = true;
+        document.getElementById("contact-thanks").hidden = false;
+      }
+    </script>
+  </body>
+</html>
