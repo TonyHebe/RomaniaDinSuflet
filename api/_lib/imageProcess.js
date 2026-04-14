@@ -80,29 +80,29 @@ function wrapText(text, maxChars, maxLines) {
 }
 
 /**
- * Renders a text line as a PNG buffer using sharp's built-in Pango text renderer
- * with the bundled Roboto Bold TTF font. Falls back to plain sans-serif if the
- * font file is unavailable.
+ * Renders a text line as a PNG buffer using sharp's built-in Pango text renderer.
+ * Pango markup sets the foreground colour to white so no post-processing is needed.
  */
 async function renderTextLine(line, width) {
   try {
+    const safe = String(line)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
     return await sharp({
       text: {
-        text: line,
+        text: `<span foreground="white" font_desc="Bold ${FONT_SIZE}">${safe}</span>`,
         fontfile: FONT_PATH,
-        font: "Roboto Bold",
-        width,
-        height: FONT_SIZE + 16,
         rgba: true,
-        dpi: 144,
+        width,
+        height: FONT_SIZE + 24,
         align: "centre",
+        dpi: 96,
       },
     })
-      .flatten({ background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toBuffer();
   } catch {
-    // If font rendering fails entirely, return null so the caller skips text.
     return null;
   }
 }
@@ -163,19 +163,10 @@ export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, text = null) {
         if (!textBuf) continue;
         const meta = await sharp(textBuf).metadata();
         const tw = meta.width || (size - 60);
-        const th = meta.height || (FONT_SIZE + 16);
         const tx = Math.max(0, Math.floor((size - tw) / 2));
         const ty = Math.max(0, startY + i * lineSpacing);
 
-        // Tint the text white by inverting the alpha and filling with white.
-        const whiteTinted = await sharp({
-          create: { width: tw, height: th, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0 } },
-        })
-          .composite([{ input: textBuf, blend: "dest-in" }])
-          .png()
-          .toBuffer();
-
-        composites.push({ input: whiteTinted, top: ty, left: tx });
+        composites.push({ input: textBuf, top: ty, left: tx });
       }
     }
 
