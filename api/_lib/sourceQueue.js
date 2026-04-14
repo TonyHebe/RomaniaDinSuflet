@@ -28,7 +28,11 @@ export async function enqueueSourceUrls(urls) {
         insert into source_queue (source_url, status, created_at, updated_at)
         values ($1, 'pending', now(), now())
         on conflict (source_url) do update
-          set updated_at = now()
+          set status        = case when source_queue.status = 'failed' then 'pending' else source_queue.status end,
+              attempt_count = case when source_queue.status = 'failed' then 0         else source_queue.attempt_count end,
+              claimed_at    = case when source_queue.status = 'failed' then null      else source_queue.claimed_at end,
+              last_error    = case when source_queue.status = 'failed' then null      else source_queue.last_error end,
+              updated_at    = now()
         returning id, source_url as "sourceUrl", status, attempt_count as "attemptCount"
       `,
       [url],
