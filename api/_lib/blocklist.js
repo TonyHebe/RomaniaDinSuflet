@@ -25,7 +25,7 @@ export function getBlockedTitleSubstrings() {
   return parseCsvEnv("BLOCKED_TITLE_SUBSTRINGS");
 }
 
-const HARDCODED_BLOCKED_HOSTS = ["cancan.ro", "g4media.ro"];
+const HARDCODED_BLOCKED_HOSTS = ["cancan.ro"];
 
 export function getBlockedSourceHosts() {
   const fromEnv = parseCsvEnv("BLOCKED_SOURCE_HOSTS").map((h) => h.toLowerCase());
