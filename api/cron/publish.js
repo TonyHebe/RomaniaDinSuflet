@@ -1,7 +1,7 @@
 let _deps = null;
 async function getDeps() {
   if (_deps) return _deps;
-  const [articles, sourceQueue, scrape, blocklist, openai, facebook, imageProcess] = await Promise.all([
+  const [articles, sourceQueue, scrape, blocklist, openai, facebook, imageProcess, storage] = await Promise.all([
     import("../_lib/articles.js"),
     import("../_lib/sourceQueue.js"),
     import("../_lib/scrape.js"),
