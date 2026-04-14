@@ -58,14 +58,14 @@ export function buildFallbackTeaser(title) {
     .toUpperCase()
     .replace(/[^A-Z0-9 ]/g, " ")
     .replace(/\s+/g, " ").trim()
-    .split(" ").slice(0, 6).join(" ");
+    .split(" ").slice(0, 8).join(" ");
   return { hook, detail };
 }
 
 const DEFAULT_SIZE = 1080;
 const FETCH_TIMEOUT_MS = 15000;
 const TOP_BAR_H = 100;
-const BOT_BAR_H = 130;
+const BOT_BAR_H = 185;
 const HOOK_FONT_SIZE = 56;
 const DETAIL_FONT_SIZE = 44;
 const BORDER_W = 45; // red side border width in px — thick enough for Facebook edge sampling
@@ -136,7 +136,7 @@ function buildOverlaySvg(hook, detail, size) {
 
   if (detail) {
     const barTop = size - BOT_BAR_H;
-    const lines = wrapText(normaliseText(detail), 20, 2);
+    const lines = wrapText(normaliseText(detail), 22, 3);
     const lineSpacing = DETAIL_FONT_SIZE + 10;
     const totalH = lines.length * lineSpacing;
     const startY = barTop + Math.floor((BOT_BAR_H - totalH) / 2) + DETAIL_FONT_SIZE;
