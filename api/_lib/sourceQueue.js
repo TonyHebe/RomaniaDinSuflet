@@ -68,7 +68,7 @@ export async function claimNextSource({ maxAttempts = DEFAULT_MAX_ATTEMPTS } = {
       lastPostedHost = null;
     }
 
-    const scanLimit = 200;
+    const scanLimit = 2000;
     const { rows: candidates } = await client.query(
       `
         select
