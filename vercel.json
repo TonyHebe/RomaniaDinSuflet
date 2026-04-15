@@ -2,7 +2,8 @@
   "version": 2,
   "crons": [],
   "rewrites": [
-    { "source": "/s/:slug", "destination": "/api/share/:slug" }
+    { "source": "/s/:slug", "destination": "/api/share/:slug" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" }
   ]
 }
 
