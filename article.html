@@ -5,17 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Articol — Romania Din Suflet</title>
     <meta name="description" content="Articol — Romania Din Suflet" />
-    <!-- Google AdSense: set to your real ca-pub-... to enable ads -->
+    <!-- Google AdSense -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
-    <!-- Official AdSense account meta (recommended by Google) -->
     <meta name="google-adsense-account" content="ca-pub-9846184063862431" />
-    <!-- AdSense script is injected by ads.js when enabled -->
-    <!-- In-article ads (inside article text). Provide one or more numeric slot IDs, comma-separated. -->
-    <meta name="adsense-article-incontent-slots" content="REPLACE_ME" />
-    <!-- Insert an ad after every N paragraphs (example: 3 = after 3rd, 6th, 9th...). -->
-    <meta name="adsense-article-incontent-every" content="3" />
-    <!-- Start inserting only after paragraph N (example: 2 = after the 2nd paragraph). -->
-    <meta name="adsense-article-incontent-start" content="2" />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
     <!-- Vercel Web Analytics -->
@@ -40,6 +32,22 @@
             <span class="brand-sub">Din Suflet</span>
           </div>
         </a>
+
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Deschide meniul"
+          aria-controls="primary-nav"
+          aria-expanded="false"
+        >
+          <span aria-hidden="true" class="nav-toggle-lines"></span>
+        </button>
+
+        <nav class="site-nav" aria-label="Navigație principală" id="primary-nav">
+          <a href="./#stiri">Știri</a>
+          <a href="./despre-noi.html">Despre noi</a>
+          <a href="./contact.html">Contact</a>
+        </nav>
       </div>
     </header>
 
@@ -50,7 +58,6 @@
             <h1 class="section-title" id="article-title">Se încarcă…</h1>
             <p class="section-muted" id="article-meta"></p>
           </div>
-
 
           <img
             id="article-image"
@@ -107,11 +114,37 @@
             .replaceAll("'", "&#039;");
         }
 
-        function getMetaContent(name) {
-          const el = document.querySelector(`meta[name="${CSS.escape(name)}"]`);
-          return el instanceof HTMLMetaElement ? (el.content || "").trim() : "";
+        function injectSchema(article) {
+          try {
+            const siteUrl = "https://www.romaniadinsuflet.ro";
+            const pageUrl = siteUrl + "/article.html?slug=" + encodeURIComponent(slug);
+            const schema = {
+              "@context": "https://schema.org",
+              "@type": "NewsArticle",
+              "headline": article.title || "",
+              "description": article.excerpt || (article.content || "").slice(0, 160).replace(/\s+/g, " ").trim(),
+              "url": pageUrl,
+              "mainEntityOfPage": { "@type": "WebPage", "@id": pageUrl },
+              "datePublished": article.publishedAt || null,
+              "dateModified": article.publishedAt || null,
+              "author": { "@type": "Organization", "name": "Romania Din Suflet", "url": siteUrl },
+              "publisher": {
+                "@type": "Organization",
+                "name": "Romania Din Suflet",
+                "url": siteUrl,
+                "logo": { "@type": "ImageObject", "url": siteUrl + "/assets/logo.svg" }
+              },
+              "image": article.imageUrl ? [article.imageUrl] : undefined,
+              "inLanguage": "ro-RO"
+            };
+            const el = document.createElement("script");
+            el.type = "application/ld+json";
+            el.textContent = JSON.stringify(schema);
+            document.head.appendChild(el);
+          } catch (e) {
+            // ignore schema errors — non-critical
+          }
         }
-
 
         async function load() {
           try {
@@ -125,10 +158,7 @@
             } else {
               const text = await res.text().catch(() => "");
               throw new Error(
-                `Non-JSON response from /api/articles/:slug (status=${res.status}, content-type=${contentType}): ${text.slice(
-                  0,
-                  200,
-                )}`,
+                `Non-JSON response from /api/articles/:slug (status=${res.status}, content-type=${contentType}): ${text.slice(0, 200)}`,
               );
             }
             if (!res.ok) {
@@ -136,7 +166,15 @@
               throw new Error(`HTTP ${res.status}${apiErr ? `: ${apiErr}` : ""}`);
             }
 
-            if (titleEl) titleEl.textContent = a?.title || "Articol";
+            const articleTitle = a?.title || "Articol";
+            const articleExcerpt = a?.excerpt || "";
+
+            // Update page <title> and <meta description> dynamically.
+            document.title = articleTitle + " — Romania Din Suflet";
+            const descMeta = document.querySelector('meta[name="description"]');
+            if (descMeta && articleExcerpt) descMeta.setAttribute("content", articleExcerpt.slice(0, 160));
+
+            if (titleEl) titleEl.textContent = articleTitle;
             if (metaEl) {
               metaEl.textContent = a?.publishedAt
                 ? new Date(a.publishedAt).toLocaleDateString("ro-RO", {
@@ -149,8 +187,12 @@
 
             if (imageEl && a?.imageUrl) {
               imageEl.src = a.imageUrl;
+              imageEl.alt = articleTitle;
               imageEl.hidden = false;
             }
+
+            // Inject NewsArticle schema for Google.
+            injectSchema(a);
 
             // Body is stored as plain text; render safe paragraphs.
             const body = String(a?.content || "");
@@ -184,11 +226,6 @@
         </div>
       </div>
     </div>
-    <script>
-      function acceptCookies(){localStorage.setItem("cookie_consent","accepted");document.getElementById("cookie-banner").hidden=true;}
-      function declineCookies(){localStorage.setItem("cookie_consent","declined");document.getElementById("cookie-banner").hidden=true;}
-      if(!localStorage.getItem("cookie_consent")){document.getElementById("cookie-banner").hidden=false;}
-    </script>
+    <script src="./script.js" defer></script>
   </body>
 </html>
-
