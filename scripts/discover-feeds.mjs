@@ -146,7 +146,7 @@ for (const feed of FEEDS) {
   }
 }
 
-const perFeedLimit = Math.max(0, readIntEnv("DISCOVER_PER_FEED", 1));
+const perFeedLimit = Math.max(0, readIntEnv("DISCOVER_PER_FEED", 5));
 const defaultTotal = perFeedLimit > 0 ? perFeedLimit * FEEDS.length : 0;
 const totalLimit = Math.max(0, readIntEnv("DISCOVER_TOTAL_LIMIT", defaultTotal));
 

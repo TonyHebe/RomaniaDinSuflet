@@ -8,6 +8,12 @@ function normalizeError(err) {
   return String(err?.message || err);
 }
 
+const MAX_PENDING_PER_HOST = 5;
+
+function getHostname(url) {
+  try { return new URL(String(url)).hostname.toLowerCase(); } catch { return null; }
+}
+
 export async function enqueueSourceUrls(urls) {
   const pool = getPool();
   const clean = Array.from(
@@ -18,11 +24,33 @@ export async function enqueueSourceUrls(urls) {
     ),
   );
 
+  // Fetch current pending counts per hostname so we can enforce the per-host cap.
+  const { rows: pendingCounts } = await pool.query(
+    `SELECT regexp_replace(source_url, '^https?://(?:www\\.)?([^/?#]+).*$', '\\1') AS host,
+            COUNT(*) AS cnt
+     FROM source_queue
+     WHERE status = 'pending'
+     GROUP BY host`,
+  );
+  const pendingByHost = new Map(pendingCounts.map((r) => [r.host, Number(r.cnt)]));
+
   const results = [];
+  // Track how many we've added per host in this batch.
+  const addedByHost = new Map();
+
   for (const url of clean) {
     // validate format
     // eslint-disable-next-line no-new
     new URL(url);
+
+    const host = getHostname(url);
+    const currentPending = (pendingByHost.get(host) ?? 0) + (addedByHost.get(host) ?? 0);
+    if (host && currentPending >= MAX_PENDING_PER_HOST) {
+      // Skip — this host already has enough pending articles.
+      results.push({ skipped: true, sourceUrl: url, reason: "pending_cap" });
+      continue;
+    }
+
     const { rows } = await pool.query(
       `
         insert into source_queue (source_url, status, created_at, updated_at)
@@ -37,7 +65,10 @@ export async function enqueueSourceUrls(urls) {
       `,
       [url],
     );
-    results.push(rows[0]);
+    if (rows[0]) {
+      results.push(rows[0]);
+      if (host) addedByHost.set(host, (addedByHost.get(host) ?? 0) + 1);
+    }
   }
   return results;
 }
