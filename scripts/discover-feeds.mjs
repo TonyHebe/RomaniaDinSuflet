@@ -1,10 +1,11 @@
 const FEEDS = [
-  { name: "hotnews-politic", url: "https://hotnews.ro/c/actualitate/politic/feed/" },
+  { name: "bursa-politica", url: "https://www.bursa.ro/politica", type: "html", linkPattern: /https:\/\/www\.bursa\.ro\/[a-z0-9][a-z0-9-]*-\d{6,}/g },
   { name: "romaniatv-politica", url: "https://www.romaniatv.net/politica/feed" },
   { name: "g4media-articole", url: "https://www.g4media.ro/articole/feed" },
   { name: "ciao-news", url: "https://ciao.ro/news/feed/" },
   { name: "unica-stiri", url: "https://www.unica.ro/stiri/feed" },
   { name: "jli-stiri", url: "https://jli.ro/category/stiri/feed/" },
+  // hotnews-politic removed — blocks Vercel IPs (403)
   // capital.ro removed — returns 403 (blocks scrapers)
 ];
 
@@ -26,6 +27,25 @@ function stripCdata(s) {
     .replace(/^<!\[CDATA\[/, "")
     .replace(/\]\]>$/, "")
     .trim();
+}
+
+function extractLinksFromHtml(html, { pattern, limit = 30 } = {}) {
+  const out = [];
+  const seen = new Set();
+  const re = new RegExp(pattern.source, "g");
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const raw = m[0];
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    try {
+      const u = new URL(raw);
+      u.hash = "";
+      out.push(u.toString());
+    } catch { /* ignore */ }
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 function extractLinksFromRss(xml, { limit = 30 } = {}) {
@@ -99,8 +119,10 @@ const perFeed = [];
 
 for (const feed of FEEDS) {
   try {
-    const xml = await fetchText(feed.url);
-    const links = extractLinksFromRss(xml, { limit: 25 });
+    const text = await fetchText(feed.url);
+    const links = feed.type === "html"
+      ? extractLinksFromHtml(text, { pattern: feed.linkPattern, limit: 25 })
+      : extractLinksFromRss(text, { limit: 25 });
     const unique = [];
     for (const l of links) {
       if (seen.has(l)) continue;
