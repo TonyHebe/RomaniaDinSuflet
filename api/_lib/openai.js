@@ -37,7 +37,7 @@ export function isBadTitle(title) {
   const n = normalizeForCompare(t);
   if (!n) return true;
   if (n === "titlu" || n === "title") return true;
-  if (/^(titlu|title)\s*[:\-]/i.test(t)) return true;
+  if (/^(titlul?\s*rescris|titlu|title)\s*[:\-]/i.test(t)) return true;
   if (t.length < 6) return true;
   return false;
 }
@@ -81,7 +81,7 @@ REGULI OBLIGATORII:
 - Nu inventa fapte sau persoane care nu apar in text.
 
 STRUCTURA OBLIGATORIE:
-Linia 1: titlul rescris (max 12-14 cuvinte)
+Linia 1: noul titlu (max 12-14 cuvinte, scrie DIRECT titlul fara niciun prefix ca "Titlul rescris:" sau "Titlu:")
 Linia 2: goala
 Paragrafe 1-N: corpul articolului extins si detaliat (paragrafe separate prin linii goale)
 Ultimul paragraf: o sectiune care incepe cu 'De ce conteaza?' urmata de 2-3 propozitii despre relevanta stirii pentru cititorii din Romania (context, impact, ce urmeaza).
@@ -164,7 +164,7 @@ function cleanSingleLineTitle(raw) {
     .split("\n")
     .map((l) => String(l || "").trim())
     .filter(Boolean)[0] || "";
-  let t = s.replace(/^(titlu|title)\s*[:\-]\s*/i, "").trim();
+  let t = s.replace(/^(titlul?\s*rescris|titlu|title)\s*[:\-]\s*/i, "").trim();
   t = t.replace(/^["„”'’]+|["„”'’]+$/g, "").trim();
   t = t.replace(/\s+/g, " ").trim();
   return t;
@@ -294,8 +294,8 @@ export function parseRewrite(text) {
   const firstLine =
     firstNonEmptyIdx >= 0 ? String(lines[firstNonEmptyIdx] || "").trim() : "";
 
-  // Allow responses like "TITLU: ...." even though we don't ask for it.
-  let title = firstLine.replace(/^(titlu|title)\s*[:\-]\s*/i, "").trim();
+  // Strip any prefix the model might add (e.g. "Titlu:", "Titlul rescris:").
+  let title = firstLine.replace(/^(titlul?\s*rescris|titlu|title)\s*[:\-]\s*/i, "").trim();
   title = title.replace(/^["„”'’]+|["„”'’]+$/g, "").trim();
   title = title.replace(/\s+/g, " ").trim();
 
