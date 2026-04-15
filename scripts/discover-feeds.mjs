@@ -1,5 +1,5 @@
 const FEEDS = [
-  { name: "bursa-politica", url: "https://www.bursa.ro/politica", type: "html", linkPattern: /https:\/\/www\.bursa\.ro\/[a-z0-9][a-z0-9-]*-\d{6,}/g },
+  { name: "bursa-politica", url: "https://www.bursa.ro/politica", type: "html", baseUrl: "https://www.bursa.ro", linkPattern: /href="(\/[a-z0-9][a-z0-9-]*-\d{6,})"/g },
   { name: "romaniatv-politica", url: "https://www.romaniatv.net/politica/feed" },
   { name: "g4media-articole", url: "https://www.g4media.ro/articole/feed" },
   { name: "ciao-news", url: "https://ciao.ro/news/feed/" },
@@ -29,17 +29,19 @@ function stripCdata(s) {
     .trim();
 }
 
-function extractLinksFromHtml(html, { pattern, limit = 30 } = {}) {
+function extractLinksFromHtml(html, { pattern, baseUrl = "", limit = 30 } = {}) {
   const out = [];
   const seen = new Set();
   const re = new RegExp(pattern.source, "g");
   let m;
   while ((m = re.exec(html)) !== null) {
-    const raw = m[0];
+    // Use capture group 1 if present (href="..."), else full match
+    const raw = m[1] ?? m[0];
     if (seen.has(raw)) continue;
     seen.add(raw);
     try {
-      const u = new URL(raw);
+      const full = raw.startsWith("http") ? raw : baseUrl + raw;
+      const u = new URL(full);
       u.hash = "";
       out.push(u.toString());
     } catch { /* ignore */ }
@@ -69,13 +71,19 @@ function extractLinksFromRss(xml, { limit = 30 } = {}) {
   return out;
 }
 
-async function fetchText(url) {
+async function fetchText(url, { html = false } = {}) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const res = await fetch(url, {
-      headers: {
-        "user-agent": "Mozilla/5.0 (compatible; RDS-Discovery/1.0)",
-        accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1",
-      },
+      headers: html
+        ? {
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-language": "ro-RO,ro;q=0.9,en;q=0.5",
+          }
+        : {
+            "user-agent": "Mozilla/5.0 (compatible; RDS-Discovery/1.0)",
+            accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1",
+          },
       redirect: "follow",
     });
 
@@ -119,9 +127,9 @@ const perFeed = [];
 
 for (const feed of FEEDS) {
   try {
-    const text = await fetchText(feed.url);
+    const text = await fetchText(feed.url, { html: feed.type === "html" });
     const links = feed.type === "html"
-      ? extractLinksFromHtml(text, { pattern: feed.linkPattern, limit: 25 })
+      ? extractLinksFromHtml(text, { pattern: feed.linkPattern, baseUrl: feed.baseUrl || "", limit: 25 })
       : extractLinksFromRss(text, { limit: 25 });
     const unique = [];
     for (const l of links) {
