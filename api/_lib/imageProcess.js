@@ -67,7 +67,7 @@ const FETCH_TIMEOUT_MS = 15000;
 const TOP_BAR_H = 100;
 const BOT_BAR_H = 185;
 const HOOK_FONT_SIZE = 56;
-const DETAIL_FONT_SIZE = 44;
+const DETAIL_FONT_SIZE = 52;
 const BORDER_W = 0; // side borders removed; kept as zero so text x-offset math still works
 
 function normaliseText(text) {
@@ -136,7 +136,7 @@ function buildOverlaySvg(hook, detail, size) {
     const lineSpacing = DETAIL_FONT_SIZE + 10;
     const totalH = lines.length * lineSpacing;
     const startY = barTop + Math.floor((BOT_BAR_H - totalH) / 2) + DETAIL_FONT_SIZE;
-    content += `<rect x="0" y="${barTop}" width="${size}" height="${BOT_BAR_H}" fill="#1a1a1a" opacity="0.92"/>`;
+    content += `<rect x="0" y="${barTop}" width="${size}" height="${BOT_BAR_H}" fill="#c0161d" opacity="0.95"/>`;
     for (let i = 0; i < lines.length; i++) {
       const lw = measureTextWidth(lines[i], DETAIL_FONT_SIZE);
       const x = Math.max(10, (size - lw) / 2);
