@@ -112,7 +112,7 @@
           <article class="article-card">
             ${
               imageUrl
-                ? `<img class="article-thumb" src="${imageUrl}" alt="" loading="lazy" />`
+                ? `<img class="article-thumb" src="${imageUrl}" alt="${title}" loading="lazy" />`
                 : `<div class="article-thumb" aria-hidden="true"></div>`
             }
             <div class="article-body">
