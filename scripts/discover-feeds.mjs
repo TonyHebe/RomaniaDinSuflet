@@ -1,4 +1,5 @@
 const FEEDS = [
+  { name: "hotnews-politic", url: "https://hotnews.ro/c/actualitate/politic/feed/" },
   { name: "bursa-politica", url: "https://www.bursa.ro/politica", type: "html", baseUrl: "https://www.bursa.ro", linkPattern: /href="(\/[a-z0-9][a-z0-9-]*-\d{6,})"/g },
   { name: "romaniatv-politica", url: "https://www.romaniatv.net/politica/feed" },
   { name: "g4media-articole", url: "https://www.g4media.ro/articole/feed" },
