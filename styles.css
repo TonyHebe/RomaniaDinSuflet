@@ -356,6 +356,10 @@ a {
   font-size: 18px;
   line-height: 1.25;
   font-weight: 800;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .article-excerpt {
@@ -363,6 +367,10 @@ a {
   color: rgba(16, 17, 20, 0.78);
   font-size: 14px;
   line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .article-meta {

@@ -39,6 +39,7 @@ export function isBadTitle(title) {
   if (n === "titlu" || n === "title") return true;
   if (/^(titlul?\s*rescris|titlu|title)[\s:\-]/i.test(t)) return true;
   if (t.length < 6) return true;
+  if (t.length > 200) return true;
   return false;
 }
 
