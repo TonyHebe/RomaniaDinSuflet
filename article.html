@@ -181,7 +181,10 @@
               throw new Error(`HTTP ${res.status}${apiErr ? `: ${apiErr}` : ""}`);
             }
 
-            const articleTitle = a?.title || "Articol";
+            const rawArticleTitle = String(a?.title || "Articol").trim();
+            const articleTitle = rawArticleTitle.length > 150
+              ? rawArticleTitle.slice(0, 150).trimEnd() + "…"
+              : rawArticleTitle;
             const articleExcerpt = a?.excerpt || "";
 
             // Update page <title> and <meta description> dynamically.
