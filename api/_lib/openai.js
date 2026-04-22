@@ -37,7 +37,7 @@ export function isBadTitle(title) {
   const n = normalizeForCompare(t);
   if (!n) return true;
   if (n === "titlu" || n === "title") return true;
-  if (/^(titlul?\s*rescris|titlu|title)\s*[:\-]/i.test(t)) return true;
+  if (/^(titlul?\s*rescris|titlu|title)[\s:\-]/i.test(t)) return true;
   if (t.length < 6) return true;
   return false;
 }
@@ -164,7 +164,7 @@ function cleanSingleLineTitle(raw) {
     .split("\n")
     .map((l) => String(l || "").trim())
     .filter(Boolean)[0] || "";
-  let t = s.replace(/^(titlul?\s*rescris|titlu|title)\s*[:\-]\s*/i, "").trim();
+  let t = s.replace(/^(titlul?\s*rescris|titlu|title)[\s:\-]+/i, "").trim();
   t = t.replace(/^["„”'’]+|["„”'’]+$/g, "").trim();
   t = t.replace(/\s+/g, " ").trim();
   return t;
@@ -295,7 +295,7 @@ export function parseRewrite(text) {
     firstNonEmptyIdx >= 0 ? String(lines[firstNonEmptyIdx] || "").trim() : "";
 
   // Strip any prefix the model might add (e.g. "Titlu:", "Titlul rescris:").
-  let title = firstLine.replace(/^(titlul?\s*rescris|titlu|title)\s*[:\-]\s*/i, "").trim();
+  let title = firstLine.replace(/^(titlul?\s*rescris|titlu|title)[\s:\-]+/i, "").trim();
   title = title.replace(/^["„”'’]+|["„”'’]+$/g, "").trim();
   title = title.replace(/\s+/g, " ").trim();
 

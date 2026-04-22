@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Articol — Romania Din Suflet</title>
     <meta name="description" content="Articol — Romania Din Suflet" />
+    <link rel="canonical" id="article-canonical" href="" />
     <!-- Google AdSense -->
     <meta name="adsense-client" content="ca-pub-9846184063862431" />
     <meta name="google-adsense-account" content="ca-pub-9846184063862431" />
@@ -101,8 +102,22 @@
         const slug = params.get("slug");
 
         if (!slug) {
+          // No slug — not a real article page, prevent indexing.
+          const robotsMeta = document.createElement("meta");
+          robotsMeta.name = "robots";
+          robotsMeta.content = "noindex,nofollow";
+          document.head.appendChild(robotsMeta);
           if (errorEl) errorEl.hidden = false;
           return;
+        }
+
+        // Set canonical to the definitive article URL.
+        const canonicalEl = document.getElementById("article-canonical");
+        if (canonicalEl) {
+          canonicalEl.setAttribute(
+            "href",
+            "https://www.romaniadinsuflet.ro/article.html?slug=" + encodeURIComponent(slug)
+          );
         }
 
         function escapeHtml(str) {

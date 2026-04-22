@@ -34,6 +34,19 @@
     if (e.key === "Escape") setExpanded(false);
   });
 
+  function updatePaginationSeo(page) {
+    const SITE_URL = "https://www.romaniadinsuflet.ro";
+    const canonical = document.getElementById("page-canonical");
+    const robots = document.getElementById("page-robots");
+    if (page > 1) {
+      if (canonical) canonical.setAttribute("href", SITE_URL + "/?stiriPage=" + page);
+      if (robots) robots.setAttribute("content", "noindex,follow");
+    } else {
+      if (canonical) canonical.setAttribute("href", SITE_URL + "/");
+      if (robots) robots.setAttribute("content", "index,follow");
+    }
+  }
+
   async function loadStiri() {
     const list = document.getElementById("stiri-list");
     const pagination = document.getElementById("stiri-pagination");
@@ -47,6 +60,7 @@
 
     const pageSize = 9;
     const page = getStiriPage();
+    updatePaginationSeo(page);
 
     try {
       const res = await fetch(
