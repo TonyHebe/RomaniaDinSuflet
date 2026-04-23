@@ -149,51 +149,122 @@ function buildOverlaySvg(hook, detail, size) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">${content}</svg>`;
 }
 
+// Browser-like User-Agents to retry image fetches with if the first one fails
+// (some CDNs/publishers reject requests without a realistic UA / Referer).
+const IMAGE_FETCH_UA_VARIANTS = [
+  "Mozilla/5.0 (compatible; RDS-ImageProcess/1.0)",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+];
+
+async function fetchImageBuffer(imageUrl) {
+  if (!imageUrl) return null;
+  let lastError = null;
+
+  for (const ua of IMAGE_FETCH_UA_VARIANTS) {
+    const controller = new AbortController();
+    const t = setTimeout(
+      () => controller.abort(new Error("Image fetch timeout")),
+      FETCH_TIMEOUT_MS,
+    );
+    try {
+      let refererOrigin = "";
+      try { refererOrigin = new URL(String(imageUrl)).origin; } catch { /* noop */ }
+
+      const res = await fetch(String(imageUrl), {
+        signal: controller.signal,
+        headers: {
+          "user-agent": ua,
+          accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+          ...(refererOrigin ? { referer: `${refererOrigin}/` } : {}),
+        },
+      });
+      if (!res.ok) {
+        lastError = new Error(`HTTP ${res.status}`);
+        continue;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.byteLength < 256) {
+        lastError = new Error(`Image too small (${buf.byteLength} bytes)`);
+        continue;
+      }
+      return buf;
+    } catch (err) {
+      lastError = err;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  console.warn(
+    `[imageProcess] all fetch attempts failed for ${String(imageUrl).slice(0, 120)}: ${String(lastError?.message || lastError)}`,
+  );
+  return null;
+}
+
 /**
  * Fetches an image, center-crops to square, overlays hook + detail bars,
- * and returns a JPEG Buffer. Returns null on any failure.
+ * and returns a JPEG Buffer. If the source image can't be fetched or
+ * processed, falls back to a solid-color background so the overlay bars
+ * (the whole point of this function) are ALWAYS applied.
+ *
+ * Returns null only in the worst case (sharp completely broken).
  *
  * @param {string} imageUrl
  * @param {number} size
  * @param {string|{hook:string,detail:string}|null} teaser
  */
 export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, teaser = null) {
-  if (!imageUrl) return null;
-
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(new Error("Image fetch timeout")), FETCH_TIMEOUT_MS);
-
-  let buffer;
-  try {
-    const res = await fetch(String(imageUrl), {
-      signal: controller.signal,
-      headers: { "user-agent": "Mozilla/5.0 (compatible; RDS-ImageProcess/1.0)" },
-    });
-    if (!res.ok) return null;
-    buffer = Buffer.from(await res.arrayBuffer());
-  } catch { return null; }
-  finally { clearTimeout(t); }
-
-  try {
-    let hook = null;
-    let detail = null;
-
-    if (teaser) {
-      if (typeof teaser === "string") {
-        // Legacy string — treat as hook only
-        hook = teaser;
-      } else if (typeof teaser === "object") {
-        hook = teaser.hook || null;
-        detail = teaser.detail || null;
-      }
+  let hook = null;
+  let detail = null;
+  if (teaser) {
+    if (typeof teaser === "string") {
+      hook = teaser;
+    } else if (typeof teaser === "object") {
+      hook = teaser.hook || null;
+      detail = teaser.detail || null;
     }
+  }
 
-    const svg = buildOverlaySvg(hook, detail, size);
+  const svg = buildOverlaySvg(hook, detail, size);
+  const svgBuf = Buffer.from(svg);
 
-    return await sharp(buffer)
-      .resize(size, size, { fit: "cover", position: "centre" })
-      .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+  const sourceBuffer = await fetchImageBuffer(imageUrl);
+
+  // Happy path: we have a source image — resize to square and overlay bars.
+  if (sourceBuffer) {
+    try {
+      return await sharp(sourceBuffer)
+        .resize(size, size, { fit: "cover", position: "centre" })
+        .composite([{ input: svgBuf, top: 0, left: 0 }])
+        .jpeg({ quality: 85 })
+        .toBuffer();
+    } catch (err) {
+      console.warn(
+        `[imageProcess] sharp processing failed, falling back to solid background: ${String(err?.message || err)}`,
+      );
+    }
+  }
+
+  // Fallback path: source image unavailable/corrupt. Generate a solid dark
+  // background with the overlay bars on top, so every post still has the
+  // curiosity-gap bars visible. Much better than posting a raw unbranded image.
+  try {
+    return await sharp({
+      create: {
+        width: size,
+        height: size,
+        channels: 3,
+        background: { r: 20, g: 20, b: 24 },
+      },
+    })
+      .composite([{ input: svgBuf, top: 0, left: 0 }])
       .jpeg({ quality: 85 })
       .toBuffer();
-  } catch { return null; }
+  } catch (err) {
+    console.error(
+      `[imageProcess] even solid-background fallback failed: ${String(err?.message || err)}`,
+    );
+    return null;
+  }
 }
