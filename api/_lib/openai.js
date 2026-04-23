@@ -195,7 +195,21 @@ export async function rewriteFacebookTitleWithAI({
     "IMPORTANT: Păstrează ideea principală și faptele-cheie (cine/ce/unde). Nu inventa nimic și nu adăuga detalii noi.",
     "Păstrează numele proprii și toate cifrele (numerele) din titlul original, dacă există.",
     `Țintește maximum ${targetMax} caractere (fără „Vezi in comentarii”).`,
-    "Stil: o propoziție scurtă, cu impact. Dacă se potrivește natural, creează curiozitate și termină cu „…” (ex: „înainte să…” / „după ce…” / „când…”).",
+    "",
+    "TEHNICA OBLIGATORIE — curiozitate prin tăiere bruscă:",
+    "Titlul trebuie să se oprească IMEDIAT ÎNAINTE de informația-cheie (revelația), lăsând cititorul suspendat.",
+    "Folosește construcții ca: '[Subiect] tocmai a...', '[Subiect] o pune pe [Persoana] la...', '[Subiect] anunță eliminarea...', '[Subiect] a dezvăluit că...'.",
+    "Termină ÎNTOTDEAUNA cu '…' — niciodată cu un enunț complet.",
+    "",
+    "EXEMPLE BUNE (imită exact acest stil):",
+    "'Bolojan tocmai a anunțat ceva ce nimeni nu se aștepta…'",
+    "'Surpriză de proporții! Bolojan o pune pe Oana Țoiu la…'",
+    "'Breaking news! Bolojan anunță eliminarea impozitului pe…'",
+    "'Grindeanu tocmai a făcut un pas care schimbă totul…'",
+    "",
+    "EXEMPLE GREȘITE (evita enunțul complet, fără suspans):",
+    "'Bolojan a anunțat că impozitul pe venit va fi eliminat din iulie.'",
+    "'Grindeanu a demisionat din funcție.'",
     "NU include: „Vezi in comentarii”, emoji-uri, hashtag-uri, ghilimele, rânduri multiple.",
     "Returnează exact o singură linie: titlul rescris.",
     "",
@@ -233,7 +247,7 @@ export async function rewriteFacebookTitleWithAI({
           temperature: 0.6,
           max_tokens: 120,
           messages: [
-            { role: "system", content: "You are a helpful Romanian social media editor." },
+            { role: "system", content: "Tu ești un editor senior de social media în România. Creezi titluri de Facebook care opresc scrollul prin tehnica curiozității suspendate: te oprești ÎNAINTE de revelație și lași cititorul să vrea să afle mai mult." },
             { role: "user", content: prompt },
           ],
         }),
@@ -331,13 +345,17 @@ REGULI STRICTE pentru "hook" - alege DOAR pe baza continutului real al articolul
 - Moarte, accident, catastrofa → "TRAGEDIE" sau "DOLIU"
 - Scandal politic, coruptie, dezvăluire → "SCANDAL TOTAL" sau "DEZVALUIRE BOMBA"
 - Lege noua, amenda, regula, decizie → "ATENTIE!" sau "IMPORTANT!" sau "SOCANT!"
-- Stire de ultima ora urgenta → "ULTIMA ORA!"
+- Stire de ultima ora urgenta → "ULTIMA ORA!" sau "BREAKING NEWS!"
 - Victorie, veste buna → "VESTE BUNA!" sau "VICTORIE!"
-- Stire surprinzatoare/neasteptata → "INCREDIBIL!" sau "SOC TOTAL!"
+- Stire surprinzatoare/neasteptata → "INCREDIBIL!" sau "SOC TOTAL!" sau "RASTURNARE DE SITUATIE"
 - NU folosi TRAGEDIE daca nimeni nu a murit sau nu s-a intamplat ceva grav
 
 1. "hook" - 2-4 cuvinte care REFLECTA CORECT tonul articolului
-2. "detail" - 5-9 cuvinte SPECIFICE despre ce e vorba in articol, fara diacritice
+2. "detail" - TEHNICA OBLIGATORIE: taierea brusca inainte de revelatie.
+   - Scrie 4-7 cuvinte specifice despre subiect, dar OPRESTE-TE INAINTE de informatia-cheie.
+   - Termina INTOTDEAUNA cu "..." sau "LA..." sau "PE..." sau "CA..." — niciodata un enunt complet.
+   - EXEMPLE BUNE: "BOLOJAN O PUNE PE OANA TOIU LA...", "SORIN GRINDEANU TOCMAI A...", "ELIMINAREA IMPOZITULUI PE...", "SURPRIZA DE PROPORTII! BOLOJAN..."
+   - EXEMPLE GRESITE: "BOLOJAN A ANUNTAT ELIMINAREA IMPOZITULUI PE VENIT" (complet, fara suspans)
 
 Titlu: ${String(title).trim()}
 
