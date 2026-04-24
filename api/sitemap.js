@@ -37,7 +37,7 @@ export default async function handler(req, res) {
         ? new Date(r.published_at).toISOString().split("T")[0]
         : now;
       const slug = escapeXml(r.slug || "");
-      return `  <url>\n    <loc>${SITE_URL}/article.html?slug=${encodeURIComponent(slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>never</changefreq>\n    <priority>0.8</priority>\n  </url>`;
+      return `  <url>\n    <loc>${SITE_URL}/s/${encodeURIComponent(slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>never</changefreq>\n    <priority>0.8</priority>\n  </url>`;
     }).join("\n");
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${staticEntries}\n${articleEntries}\n</urlset>`;
