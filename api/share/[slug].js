@@ -27,13 +27,6 @@ function normalizeOgImageUrl(raw, siteUrl) {
   }
 }
 
-function isHumanBrowser(req) {
-  const ua = String(req?.headers?.["user-agent"] || "").toLowerCase();
-  if (!ua) return false;
-  // If it looks like a real browser (has Mozilla and no known bot markers), treat as human.
-  return /mozilla/.test(ua) && !/bot|crawler|spider|crawling|preview|facebookexternalhit|facebot|twitterbot|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|pinterest|embedly|google|adsbot|mediapartners|inspection/i.test(ua);
-}
-
 function buildArticleHtml({ title, description, imageUrl, content, articleUrl, shareUrl, publishedAt, siteUrl }) {
   const paragraphs = String(content || "")
     .split(/\n{2,}/g)
@@ -89,6 +82,7 @@ function buildArticleHtml({ title, description, imageUrl, content, articleUrl, s
   ${imageUrl ? `<meta name="twitter:image" content="${escapeHtml(imageUrl)}" />` : ""}
 
   <meta name="google-adsense-account" content="ca-pub-9846184063862431" />
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9846184063862431" crossorigin="anonymous"></script>
   <link rel="icon" href="${escapeHtml(siteUrl)}/assets/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="${escapeHtml(siteUrl)}/styles.css" />
   <script type="application/ld+json">${schema}</script>
@@ -145,6 +139,19 @@ ${paragraphs}
       </p>
     </div>
   </footer>
+
+  <div class="cookie-banner" id="cookie-banner" role="dialog" aria-label="Consimțământ cookie-uri" hidden>
+    <div class="cookie-inner">
+      <p>Folosim cookie-uri pentru a îmbunătăți experiența ta și pentru reclame relevante (Google AdSense).
+        <a href="${escapeHtml(siteUrl)}/privacy.html">Află mai multe</a>
+      </p>
+      <div class="cookie-actions">
+        <button class="cookie-btn-accept" onclick="acceptCookies()">Accept</button>
+        <button class="cookie-btn-decline" onclick="declineCookies()">Refuz</button>
+      </div>
+    </div>
+  </div>
+  <script src="${escapeHtml(siteUrl)}/script.js" defer></script>
 </body>
 </html>`;
 }
@@ -167,6 +174,7 @@ export default async function handler(req, res) {
     }
 
     const siteUrl = buildSiteUrl(req);
+    // /s/:slug is the canonical, indexable URL for every article.
     const articleUrl = `${siteUrl}/s/${encodeURIComponent(slug)}`;
     const shareUrl = articleUrl;
 
@@ -196,22 +204,9 @@ export default async function handler(req, res) {
     const imageUrl = normalizeOgImageUrl(article.imageUrl, siteUrl);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    // Cache at edge for 1h, stale-while-revalidate for 24h.
+    // Cache at edge — same response served to everyone (bots + humans).
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
 
-    // Human browsers with no JS-rendering concerns get redirected to the SPA
-    // for the full interactive experience (ads, cookie banner, etc.).
-    // Everyone else — bots, crawlers, Google AdSense, social preview crawlers —
-    // gets the full server-rendered HTML with real article content so Google
-    // can index and evaluate the page properly.
-    if (isHumanBrowser(req)) {
-      // Redirect humans to the SPA article page for the full experience.
-      res.setHeader("Location", `${siteUrl}/article.html?slug=${encodeURIComponent(slug)}`);
-      res.status(302).end();
-      return;
-    }
-
-    // Serve full SSR HTML for all crawlers (Google, AdSense, social, etc.)
     res.status(200).send(buildArticleHtml({
       title,
       description,
