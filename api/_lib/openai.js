@@ -85,7 +85,13 @@ STRUCTURA OBLIGATORIE:
 Linia 1: noul titlu (max 12-14 cuvinte, scrie DIRECT titlul fara niciun prefix ca "Titlul rescris:" sau "Titlu:")
 Linia 2: goala
 Paragrafe 1-N: corpul articolului extins si detaliat (paragrafe separate prin linii goale)
-Ultimul paragraf: o sectiune care incepe cu 'De ce conteaza?' urmata de 2-3 propozitii despre relevanta stirii pentru cititorii din Romania (context, impact, ce urmeaza).
+Ultimul paragraf: incheie articolul intr-un mod NATURAL, fara titlu de sectiune si fara formula repetitiva. Alege stilul care se potriveste cel mai bine subiectului:
+  - context si implicatii pentru Romania (fara sa scrii "De ce conteaza?")
+  - ce urmeaza / ce se asteapta sa se intample
+  - reactii sau perspective diferite ale partilor implicate
+  - un citat relevant sau o declaratie semnificativa a unui oficial
+  - o concluzie scurta care pune evenimentul in perspectiva mai larga
+  Important: NU incepe ultimul paragraf cu "De ce conteaza?", "In concluzie", "Asadar" sau orice alta formula cliseica. Scrie direct, ca un jurnalist experimentat.
 
 Categorie: ${category}
 
