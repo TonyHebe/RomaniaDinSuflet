@@ -351,7 +351,7 @@ REGULI STRICTE pentru "hook" - alege DOAR pe baza continutului real al articolul
 - Moarte, accident, catastrofa → "TRAGEDIE" sau "DOLIU"
 - Scandal politic, coruptie, dezvăluire → "SCANDAL TOTAL" sau "DEZVALUIRE BOMBA"
 - Lege noua, amenda, regula, decizie → "ATENTIE!" sau "IMPORTANT!" sau "SOCANT!"
-- Stire de ultima ora urgenta → "ULTIMA ORA!" sau "BREAKING NEWS!"
+- Stire de ultima ora urgenta, decizie luata astazi/recent, anunt surpriza al unui oficial → "ULTIMA ORA!" sau "BREAKING NEWS!"
 - Victorie, veste buna → "VESTE BUNA!" sau "VICTORIE!"
 - Stire surprinzatoare/neasteptata → "INCREDIBIL!" sau "SOC TOTAL!" sau "RASTURNARE DE SITUATIE"
 - NU folosi TRAGEDIE daca nimeni nu a murit sau nu s-a intamplat ceva grav
