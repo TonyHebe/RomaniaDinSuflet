@@ -1,4 +1,4 @@
-import { getArticleBySlug, toExcerpt } from "../_lib/articles.js";
+import { getArticleBySlug, listArticles, toExcerpt } from "../_lib/articles.js";
 
 function escapeHtml(s) {
   return String(s || "")
@@ -27,7 +27,7 @@ function normalizeOgImageUrl(raw, siteUrl) {
   }
 }
 
-function buildArticleHtml({ title, description, imageUrl, content, articleUrl, shareUrl, publishedAt, siteUrl }) {
+function buildArticleHtml({ title, description, imageUrl, content, articleUrl, shareUrl, publishedAt, siteUrl, relatedArticles }) {
   const paragraphs = String(content || "")
     .split(/\n{2,}/g)
     .map((p) => p.trim())
@@ -113,7 +113,9 @@ function buildArticleHtml({ title, description, imageUrl, content, articleUrl, s
       <div class="container">
         <div class="section-head">
           <h1 class="section-title" id="article-title">${escapeHtml(title)}</h1>
-          ${dateStr ? `<p class="section-muted">${escapeHtml(dateStr)}</p>` : ""}
+          <p class="section-muted">
+            De <strong>Redacția Romania Din Suflet</strong>${dateStr ? ` &nbsp;·&nbsp; ${escapeHtml(dateStr)}` : ""}
+          </p>
         </div>
 
         ${imageUrl ? `<img class="article-hero" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" />` : ""}
@@ -125,6 +127,20 @@ ${paragraphs}
         <p style="margin-top:2rem;">
           <a href="${escapeHtml(siteUrl)}/" style="text-decoration:underline;">← Înapoi la știri</a>
         </p>
+
+        ${relatedArticles && relatedArticles.length > 0 ? `
+        <div style="margin-top:3rem;padding-top:2rem;border-top:1px solid #e5e7eb;">
+          <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:1.2rem;">Citește și:</h2>
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.9rem;">
+            ${relatedArticles.map(a => `
+            <li>
+              <a href="${escapeHtml(siteUrl)}/s/${encodeURIComponent(a.slug)}" style="text-decoration:underline;font-weight:500;color:#1a1a2e;">
+                ${escapeHtml(a.title)}
+              </a>
+              ${a.publishedAt ? `<span style="color:#888;font-size:0.85rem;margin-left:0.5rem;">${new Date(a.publishedAt).toLocaleDateString("ro-RO",{day:"numeric",month:"long",year:"numeric"})}</span>` : ""}
+            </li>`).join("")}
+          </ul>
+        </div>` : ""}
       </div>
     </section>
   </main>
@@ -178,7 +194,10 @@ export default async function handler(req, res) {
     const articleUrl = `${siteUrl}/s/${encodeURIComponent(slug)}`;
     const shareUrl = articleUrl;
 
-    const article = await getArticleBySlug(slug);
+    const [article, recentArticles] = await Promise.all([
+      getArticleBySlug(slug),
+      listArticles({ category: "stiri", limit: 7 }).catch(() => []),
+    ]);
     if (!article) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.status(404).send(`<!doctype html>
@@ -207,6 +226,11 @@ export default async function handler(req, res) {
     // Cache at edge — same response served to everyone (bots + humans).
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
 
+    // Pick up to 4 related articles — exclude the current one
+    const relatedArticles = recentArticles
+      .filter(a => a.slug !== slug)
+      .slice(0, 4);
+
     res.status(200).send(buildArticleHtml({
       title,
       description,
@@ -216,6 +240,7 @@ export default async function handler(req, res) {
       shareUrl,
       publishedAt: article.publishedAt,
       siteUrl,
+      relatedArticles,
     }));
   } catch (err) {
     res.status(500).send(String(err?.message || err));
