@@ -1,12 +1,8 @@
 name: Publish Cron
 
 on:
-  schedule:
-    # Fire every 10 minutes. GitHub Actions scheduled runs are unreliable and
-    # can be silently skipped/delayed, so we fire often. The real spacing
-    # between posts is enforced server-side by MIN_PUBLISH_INTERVAL_SECONDS
-    # (Vercel env var) — when cooldown is active the endpoint no-ops.
-    - cron: "*/10 * * * *"
+  # Schedule disabled — cron-job.org is used instead (more reliable).
+  # Keep workflow_dispatch so you can still trigger manually from GitHub Actions UI.
   workflow_dispatch:
 
 jobs:
