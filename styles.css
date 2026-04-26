@@ -400,6 +400,57 @@ a {
   outline: none;
 }
 
+/* ── Skeleton loading ── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.skeleton-block {
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e4e4e4 50%, #f0f0f0 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.article-card--skeleton .article-thumb {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e4e4e4 50%, #f0f0f0 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.article-card--skeleton .article-body {
+  display: grid;
+  gap: 10px;
+}
+
+.skeleton-title {
+  height: 18px;
+  width: 90%;
+}
+
+.skeleton-title-short {
+  height: 18px;
+  width: 65%;
+}
+
+.skeleton-line {
+  height: 13px;
+  width: 100%;
+}
+
+.skeleton-line-short {
+  height: 13px;
+  width: 75%;
+}
+
+.skeleton-meta {
+  height: 13px;
+  width: 40%;
+}
+
+/* ── End skeleton ── */
+
 .post-list {
   list-style: none;
   padding: 0;

@@ -21,13 +21,13 @@ export default async function handler(req, res) {
         page: page ?? 1,
         pageSize: pageSize ?? limit ?? 9,
       });
-      res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=300");
+      res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=600");
       res.status(200).json(result);
       return;
     }
 
     const items = await listArticles({ category, limit });
-    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=300");
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=600");
     res.status(200).json({ items });
   } catch (err) {
     res.status(500).json({ error: String(err?.message || err) });
