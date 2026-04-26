@@ -229,9 +229,46 @@ export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, teaser = null)
   const svg = buildOverlaySvg(hook, detail, size);
   const svgBuf = Buffer.from(svg);
 
-  const sourceBuffer = await fetchImageBuffer(imageUrl);
+  let sourceBuffer = await fetchImageBuffer(imageUrl);
 
-  // Happy path: we have a source image — resize to square and overlay bars.
+  // Reject images that look like site logos or banners (white background, flat aspect ratio).
+  // These produce terrible-looking posts, so we use the dark fallback instead.
+  if (sourceBuffer) {
+    try {
+      const [meta, stats] = await Promise.all([
+        sharp(sourceBuffer).metadata(),
+        sharp(sourceBuffer).stats(),
+      ]);
+
+      // 1. Aspect ratio check — logos are wide and flat (width >> height).
+      const w = meta.width || 1;
+      const h = meta.height || 1;
+      const aspectRatio = w / h;
+      if (aspectRatio > 2.5) {
+        console.warn(
+          `[imageProcess] image rejected — logo-like aspect ratio ${aspectRatio.toFixed(2)} (${w}x${h})`,
+        );
+        sourceBuffer = null;
+      }
+
+      // 2. Brightness check — white/light background (e.g. logo on white).
+      if (sourceBuffer && stats.channels.length >= 3) {
+        const meanBrightness =
+          (stats.channels[0].mean + stats.channels[1].mean + stats.channels[2].mean) / 3;
+        if (meanBrightness > 210) {
+          console.warn(
+            `[imageProcess] image rejected — too bright/white (mean=${meanBrightness.toFixed(0)}/255), likely a logo`,
+          );
+          sourceBuffer = null;
+        }
+      }
+    } catch (err) {
+      // If stats fail, proceed with the image anyway — don't penalise valid images.
+      console.warn(`[imageProcess] image quality check failed (non-fatal): ${String(err?.message || err)}`);
+    }
+  }
+
+  // Happy path: we have a usable source image — resize to square and overlay bars.
   if (sourceBuffer) {
     try {
       return await sharp(sourceBuffer)
