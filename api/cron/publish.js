@@ -291,6 +291,10 @@ export default async function handler(req, res) {
       let finalContent = "";
       let finalImageUrl = null;
       let croppedBufferForArticle = null;
+      // Declared in outer scope so the FB block can see them even when publishedSlug
+      // already existed (retry path that skips the !publishedSlug block).
+      const _fbTitleAiEnabled = parseEnvFlag("FB_TITLE_AI", false);
+      let _fbTitlePromise = Promise.resolve(null);
 
       // Retry-safe behavior:
       // If we already created the site article in a previous attempt, reuse it
@@ -403,25 +407,26 @@ export default async function handler(req, res) {
         }
 
         // Kick off the two independent AI calls in parallel right after the main rewrite:
-        //  • imageTeaserPromise  — overlay text for the image
-        //  • fbTitlePromise      — curiosity-gap FB caption
+        //  • _imageTeaserPromise — overlay text for the image
+        //  • _fbTitlePromise     — curiosity-gap FB caption
         // Both only need finalTitle/finalContent which are now settled.
         // Awaiting them later (inside the image block and FB block respectively)
         // means they run concurrently with DB inserts and image fetching,
         // saving ~5–10 s vs. the previous sequential approach.
         const _fbParallelEnabled = !!(process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN);
-        const _fbTitleAiEnabled = parseEnvFlag("FB_TITLE_AI", false);
         const _imageTeaserPromise = process.env.OPENAI_API_KEY
           ? generateImageTeaser({ title: finalTitle }).catch(() => null)
           : Promise.resolve(null);
-        const _fbTitlePromise = (_fbParallelEnabled && _fbTitleAiEnabled && process.env.OPENAI_API_KEY)
-          ? rewriteFacebookTitleWithAI({
-              title: finalTitle,
-              content: finalContent,
-              sourceUrl: job.sourceUrl,
-              category: "stiri",
-            }).catch(() => null)
-          : Promise.resolve(null);
+        // _fbTitleAiEnabled and _fbTitlePromise are declared in the outer scope so
+        // the Facebook block can read them even on the retry path.
+        if (_fbParallelEnabled && _fbTitleAiEnabled && process.env.OPENAI_API_KEY) {
+          _fbTitlePromise = rewriteFacebookTitleWithAI({
+            title: finalTitle,
+            content: finalContent,
+            sourceUrl: job.sourceUrl,
+            category: "stiri",
+          }).catch(() => null);
+        }
 
         // Process image before inserting so the website also shows the
         // cropped + overlay version (same as Facebook).
