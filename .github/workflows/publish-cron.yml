@@ -29,8 +29,9 @@ jobs:
         env:
           CRON_URL: ${{ secrets.CRON_URL }}
           MAX_CALLS_PER_RUN: 1
-          # The API function can take up to ~55s (scrape + OpenAI rewrite + image crop + Facebook).
-          # If the client times out and retries, it can accidentally publish multiple items.
-          CRON_CALL_TIMEOUT_MS: 70000
+          # maxDuration is 120s on Vercel. The two independent AI calls now run in
+          # parallel (image teaser + FB title), saving ~5–10s vs. the old sequential flow.
+          # Give 130s here so the client never times out before Vercel does.
+          CRON_CALL_TIMEOUT_MS: 130000
           CRON_PER_CALL_RETRIES: 1
 

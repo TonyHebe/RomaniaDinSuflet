@@ -59,7 +59,7 @@ async function getDeps() {
 // Vercel: allow enough time for scrape + (optional) OpenAI + (optional) Facebook.
 // Without this, a slow upstream can cause `FUNCTION_INVOCATION_FAILED`.
 export const config = {
-  maxDuration: 60,
+  maxDuration: 120,
 };
 
 class ConfigError extends Error {
@@ -402,18 +402,35 @@ export default async function handler(req, res) {
           return;
         }
 
+        // Kick off the two independent AI calls in parallel right after the main rewrite:
+        //  • imageTeaserPromise  — overlay text for the image
+        //  • fbTitlePromise      — curiosity-gap FB caption
+        // Both only need finalTitle/finalContent which are now settled.
+        // Awaiting them later (inside the image block and FB block respectively)
+        // means they run concurrently with DB inserts and image fetching,
+        // saving ~5–10 s vs. the previous sequential approach.
+        const _fbParallelEnabled = !!(process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN);
+        const _fbTitleAiEnabled = parseEnvFlag("FB_TITLE_AI", false);
+        const _imageTeaserPromise = process.env.OPENAI_API_KEY
+          ? generateImageTeaser({ title: finalTitle }).catch(() => null)
+          : Promise.resolve(null);
+        const _fbTitlePromise = (_fbParallelEnabled && _fbTitleAiEnabled && process.env.OPENAI_API_KEY)
+          ? rewriteFacebookTitleWithAI({
+              title: finalTitle,
+              content: finalContent,
+              sourceUrl: job.sourceUrl,
+              category: "stiri",
+            }).catch(() => null)
+          : Promise.resolve(null);
+
         // Process image before inserting so the website also shows the
         // cropped + overlay version (same as Facebook).
         // If Blob is not configured or processing fails, fall back to original URL.
         if (finalImageUrl) {
           const rawImageUrl = normalizeOgImageUrl(finalImageUrl, siteUrl);
           if (rawImageUrl) {
-            // Try AI-generated teaser first, fall back to deterministic title-based teaser.
-            let teaser = null;
-            if (process.env.OPENAI_API_KEY) {
-              try { teaser = await generateImageTeaser({ title: finalTitle }); } catch { /* ignore */ }
-            }
-            if (!teaser) teaser = buildFallbackTeaser(finalTitle);
+            // Await the already-in-flight teaser promise (started in parallel above).
+            const teaser = (await _imageTeaserPromise) || buildFallbackTeaser(finalTitle);
             croppedBufferForArticle = await cropToSquare(rawImageUrl, 1080, teaser);
             if (croppedBufferForArticle) {
               const safeSlug = String(finalTitle)
@@ -467,22 +484,11 @@ export default async function handler(req, res) {
         fbEnabled = true;
         try {
           let fbBaseTitle = finalTitle;
-          // Default to false to save time on Hobby plan (60s limit).
-          // Set FB_TITLE_AI=true in env to enable.
-          const fbTitleAiEnabled = parseEnvFlag("FB_TITLE_AI", false);
-          if (fbTitleAiEnabled && process.env.OPENAI_API_KEY) {
-            try {
-              const rewritten = await rewriteFacebookTitleWithAI({
-                title: finalTitle,
-                content: finalContent,
-                sourceUrl: job.sourceUrl,
-                category: "stiri",
-              });
-              if (rewritten && String(rewritten).trim()) fbBaseTitle = String(rewritten).trim();
-            } catch {
-              // best-effort: keep original finalTitle
-              fbBaseTitle = finalTitle;
-            }
+          // Await the already-in-flight FB title promise (started in parallel with image teaser).
+          // _fbTitlePromise is null when FB_TITLE_AI=false or OPENAI_API_KEY is not set.
+          if (_fbTitleAiEnabled && _fbTitlePromise) {
+            const rewritten = await _fbTitlePromise;
+            if (rewritten && String(rewritten).trim()) fbBaseTitle = String(rewritten).trim();
           }
 
           const fbPostTitle = buildFacebookPostTitle(fbBaseTitle) || buildFacebookPostTitle(finalTitle) || finalTitle;
