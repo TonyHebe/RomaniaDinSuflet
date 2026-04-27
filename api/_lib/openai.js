@@ -347,14 +347,22 @@ export async function generateImageTeaser({ title } = {}) {
 
   const prompt = `Esti un editor de stiri roman. Genereaza un overlay de imagine pentru Facebook format din 2 randuri.
 
-REGULI STRICTE pentru "hook" - alege DOAR pe baza continutului real al articolului:
-- Moarte, accident, catastrofa → "TRAGEDIE" sau "DOLIU"
-- Scandal politic, coruptie, dezvăluire → "SCANDAL TOTAL" sau "DEZVALUIRE BOMBA"
-- Lege noua, amenda, regula, decizie → "ATENTIE!" sau "IMPORTANT!" sau "SOCANT!"
-- Stire de ultima ora urgenta, decizie luata astazi/recent, anunt surpriza al unui oficial → "ULTIMA ORA!" sau "BREAKING NEWS!"
-- Victorie, veste buna → "VESTE BUNA!" sau "VICTORIE!"
-- Stire surprinzatoare/neasteptata → "INCREDIBIL!" sau "SOC TOTAL!" sau "RASTURNARE DE SITUATIE"
-- NU folosi TRAGEDIE daca nimeni nu a murit sau nu s-a intamplat ceva grav
+REGULI STRICTE pentru "hook" - alege UNUL singur, cat mai specific pentru subiect:
+- Moarte, accident, catastrofa naturala → "TRAGEDIE" sau "DOLIU NATIONAL"
+- Coruptie dovedita, dosar penal, arest → "SCANDAL TOTAL" sau "DOSAR EXPLOZIV"
+- Dezvaluire, informatie secreta aparuta public → "DEZVALUIRE BOMBA" sau "EXCLUSIV"
+- Decizie politica controversata, vot important → "DECIZIE CONTROVERSATA" sau "VOT CRUCIAL"
+- Lege noua, amenda, regula care afecteaza cetatenii → "ATENTIE!" sau "SCHIMBARE MAJORA"
+- Anunt oficial facut chiar azi, breaking news → "ULTIMA ORA!" sau "BREAKING NEWS!"
+- Reactie dura, conflict intre politicieni, acuzatii publice → "REACTIE DURA!" sau "CONFLICT TOTAL"
+- Victorie, veste buna, record pozitiv → "VESTE BUNA!" sau "VICTORIE!"
+- Cifre surprinzatoare, studiu neasteptat, statistici socante → "CIFRE SOCANTE!" sau "STUDIU EXPLOZIV"
+- Demisie, demitere, plecare din functie → "DEMISIE BOMBA!" sau "A PLECAT!"
+- Crestere de preturi, inflatie, criza economica → "ALERTA ECONOMICA!" sau "CRIZA TOTALA"
+- Stire surprinzatoare care rastoarna asteptarile → "INCREDIBIL!" sau "RASTURNARE DE SITUATIE"
+- NU folosi TRAGEDIE daca nimeni nu a murit
+- NU folosi SCANDAL TOTAL daca nu este vorba de coruptie sau dosar penal concret
+- EVITA sa repeti acelasi hook pentru articole diferite — alege cel mai SPECIFIC
 
 1. "hook" - 2-4 cuvinte care REFLECTA CORECT tonul articolului
 2. "detail" - TEHNICA OBLIGATORIE: taierea brusca inainte de revelatie.
