@@ -240,8 +240,11 @@
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
 
-            // Tell Adskeeper to scan for the newly inserted widget div.
-            if (window._mgq) window._mgq.push(["_mgc.load"]);
+            // Give the browser a tick to render the new divs, then tell Adskeeper to scan.
+            setTimeout(function() {
+              window._mgq = window._mgq || [];
+              window._mgq.push(["_mgc.load"]);
+            }, 300);
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
