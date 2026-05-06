@@ -1,2 +1,2 @@
 # ads.txt for romaniadinsuflet.ro
-# Authorized digital sellers will be updated after AdSense approval.
+adskeeper.com, 1093029, DIRECT
