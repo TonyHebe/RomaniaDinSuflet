@@ -13,8 +13,6 @@
     <link rel="stylesheet" href="./styles.css" />
     <!-- Vercel Web Analytics -->
     <script defer src="/_vercel/insights/script.js"></script>
-    <!-- Adskeeper widget loader -->
-    <script src="https://jsc.adskeeper.com/site/1093029.js" async></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Sari la conținut</a>
@@ -240,14 +238,11 @@
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
 
-            // Push _mgc.load at multiple intervals to handle both fast (desktop) and slow (mobile) connections.
-            function triggerAdskeeper() {
-              window._mgq = window._mgq || [];
-              window._mgq.push(["_mgc.load"]);
-            }
-            setTimeout(triggerAdskeeper, 300);
-            setTimeout(triggerAdskeeper, 1000);
-            setTimeout(triggerAdskeeper, 2500);
+            // Load Adskeeper AFTER all widget divs are in the DOM so it scans them on first run.
+            var adScript = document.createElement("script");
+            adScript.async = true;
+            adScript.src = "https://jsc.adskeeper.com/site/1093029.js";
+            document.head.appendChild(adScript);
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
