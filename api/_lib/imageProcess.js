@@ -149,7 +149,7 @@ function buildOverlaySvg(hook, detail, size) {
 
   if (detail) {
     const barTop = size - BOT_BAR_H;
-    const lines = wrapText(normaliseText(detail), 24, 3);
+    const lines = wrapText(normaliseText(detail), 24, 2);
     const lineSpacing = DETAIL_FONT_SIZE + 10;
     const totalH = lines.length * lineSpacing;
     const startY = barTop + Math.floor((BOT_BAR_H - totalH) / 2) + DETAIL_FONT_SIZE;
