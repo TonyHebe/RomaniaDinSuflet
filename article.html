@@ -228,9 +228,22 @@
               .map((p) => p.trim())
               .filter(Boolean);
 
-            const parts = rawParagraphs.map((p) => `<p>${escapeHtml(p)}</p>`);
+            const HEADER_WIDGET = '<style>div[data-widget-id="2007201"]{min-height:300px}</style><div data-type="_mgwidget" data-widget-id="2007201" style="margin:1.5rem 0;"></div>';
+            const INSERT_AFTER_PARAGRAPHS = 3; // ~6-7 lines worth of text
+            const parts = [];
+            let widgetInserted = false;
+            for (let i = 0; i < rawParagraphs.length; i++) {
+              parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
+              if (!widgetInserted && i + 1 >= INSERT_AFTER_PARAGRAPHS) {
+                parts.push(HEADER_WIDGET);
+                widgetInserted = true;
+              }
+            }
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
+
+            // Tell Adskeeper to scan for the newly inserted widget div.
+            if (window._mgq) window._mgq.push(["_mgc.load"]);
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
