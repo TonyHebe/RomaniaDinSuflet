@@ -240,11 +240,15 @@
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
 
-            // Give the browser a tick to render the new divs, then tell Adskeeper to scan.
+            // Re-inject the Adskeeper loader after content renders so it picks up the new widget divs.
             setTimeout(function() {
-              window._mgq = window._mgq || [];
-              window._mgq.push(["_mgc.load"]);
-            }, 300);
+              var old = document.querySelector('script[src*="jsc.adskeeper.com/site/1093029"]');
+              if (old) old.remove();
+              var s = document.createElement("script");
+              s.async = true;
+              s.src = "https://jsc.adskeeper.com/site/1093029.js";
+              document.head.appendChild(s);
+            }, 500);
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
