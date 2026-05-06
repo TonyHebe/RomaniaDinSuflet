@@ -228,20 +228,9 @@
               .map((p) => p.trim())
               .filter(Boolean);
 
-            const NATIVE_WIDGET = '<div data-type="_mgwidget" data-widget-id="2006889" style="margin:1.5rem 0;"></div>';
-            const INSERT_EVERY = 3; // insert a widget after every 3 paragraphs
-            const parts = [];
-            for (let i = 0; i < rawParagraphs.length; i++) {
-              parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
-              if ((i + 1) % INSERT_EVERY === 0 && i < rawParagraphs.length - 1) {
-                parts.push(NATIVE_WIDGET);
-              }
-            }
+            const parts = rawParagraphs.map((p) => `<p>${escapeHtml(p)}</p>`);
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
-
-            // Tell Adskeeper to scan for newly inserted widget divs.
-            if (window._mgq) window._mgq.push(["_mgc.load"]);
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
