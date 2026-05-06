@@ -27,6 +27,41 @@ export function getBlockedTitleSubstrings() {
 
 const HARDCODED_BLOCKED_HOSTS = ["cancan.ro"];
 
+// Entertainment/non-political topics to filter out automatically.
+const HARDCODED_BLOCKED_TITLE_KEYWORDS = [
+  "survivor",
+  "vedete",
+  "showbiz",
+  "divertisment",
+  "monden",
+  "celebrity",
+  "film",
+  "serial",
+  "concert",
+  "muzica",
+  "trupa",
+  "cantaret",
+  "cantareata",
+  "actor",
+  "actrita",
+  "matrimoniale",
+  "horoscop",
+  "reteta",
+  "bucatarie",
+  "fotbal",
+  "liga 1",
+  "champions league",
+  "transfer",
+  "golgheter",
+  "fcsb",
+  "dinamo",
+  "rapid",
+  "ufc",
+  "tenis",
+  "nfl",
+  "nba",
+];
+
 export function getBlockedSourceHosts() {
   const fromEnv = parseCsvEnv("BLOCKED_SOURCE_HOSTS").map((h) => h.toLowerCase());
   return Array.from(new Set([...HARDCODED_BLOCKED_HOSTS, ...fromEnv]));
@@ -57,12 +92,19 @@ export function isBlockedSourceUrl(sourceUrl) {
 }
 
 export function isBlockedTitle(title) {
-  const parts = getBlockedTitleSubstrings();
-  if (!parts.length) return { blocked: false, reason: null };
-
   const tNorm = normalizeForCompare(title);
   if (!tNorm) return { blocked: false, reason: null };
 
+  // Check hardcoded entertainment keywords first.
+  for (const kw of HARDCODED_BLOCKED_TITLE_KEYWORDS) {
+    const kwNorm = normalizeForCompare(kw);
+    if (kwNorm && tNorm.includes(kwNorm)) {
+      return { blocked: true, reason: `Blocked keyword: ${kw}` };
+    }
+  }
+
+  // Then check env-configured substrings.
+  const parts = getBlockedTitleSubstrings();
   for (const p of parts) {
     const pNorm = normalizeForCompare(p);
     if (!pNorm) continue;
