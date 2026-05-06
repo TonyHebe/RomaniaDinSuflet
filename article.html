@@ -240,15 +240,14 @@
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
 
-            // Re-inject the Adskeeper loader after content renders so it picks up the new widget divs.
-            setTimeout(function() {
-              var old = document.querySelector('script[src*="jsc.adskeeper.com/site/1093029"]');
-              if (old) old.remove();
-              var s = document.createElement("script");
-              s.async = true;
-              s.src = "https://jsc.adskeeper.com/site/1093029.js";
-              document.head.appendChild(s);
-            }, 500);
+            // Push _mgc.load at multiple intervals to handle both fast (desktop) and slow (mobile) connections.
+            function triggerAdskeeper() {
+              window._mgq = window._mgq || [];
+              window._mgq.push(["_mgc.load"]);
+            }
+            setTimeout(triggerAdskeeper, 300);
+            setTimeout(triggerAdskeeper, 1000);
+            setTimeout(triggerAdskeeper, 2500);
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";
