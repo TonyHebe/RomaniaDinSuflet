@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="./styles.css" />
     <!-- Vercel Web Analytics -->
     <script defer src="/_vercel/insights/script.js"></script>
+    <!-- Adskeeper widget loader -->
+    <script src="https://jsc.adskeeper.com/site/1093029.js" async></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Sari la conținut</a>
@@ -69,6 +71,13 @@
           />
 
           <div id="article-content" class="article-content"></div>
+
+          <!-- Adskeeper widget — below article body -->
+          <div style="margin:2rem 0;">
+            <div data-type="_mgwidget" data-widget-id="2006889"></div>
+            <script>(function(w,q){w[q]=w[q]||[];w[q].push(["_mgc.load"])})(window,"_mgq");</script>
+          </div>
+
           <p class="section-muted" id="article-error" hidden>
             Nu am putut încărca articolul.
           </p>
@@ -219,9 +228,20 @@
               .map((p) => p.trim())
               .filter(Boolean);
 
-            const parts = rawParagraphs.map((p) => `<p>${escapeHtml(p)}</p>`);
+            const NATIVE_WIDGET = '<div data-type="_mgwidget" data-widget-id="2006889" style="margin:1.5rem 0;"></div>';
+            const INSERT_EVERY = 3; // insert a widget after every 3 paragraphs
+            const parts = [];
+            for (let i = 0; i < rawParagraphs.length; i++) {
+              parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
+              if ((i + 1) % INSERT_EVERY === 0 && i < rawParagraphs.length - 1) {
+                parts.push(NATIVE_WIDGET);
+              }
+            }
 
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
+
+            // Tell Adskeeper to scan for newly inserted widget divs.
+            if (window._mgq) window._mgq.push(["_mgc.load"]);
           } catch (e) {
             console.error("Failed to load article.", e);
             if (errorEl) errorEl.textContent = "Nu am putut încărca articolul. Te rugăm reîncearcă mai târziu.";

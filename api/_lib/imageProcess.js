@@ -52,6 +52,7 @@ const HOOK_POOL = [
   "DOSAR EXPLOZIV!",
   "RECORD ISTORIC!",
   "DECIZIE CONTROVERSATA!",
+  "ANUNT IMPORTANT!",
 ];
 
 export function pickFallbackTeaser(title) {
@@ -68,12 +69,13 @@ export function pickFallbackTeaser(title) {
  */
 export function buildFallbackTeaser(title) {
   const hook = pickFallbackTeaser(title);
-  const detail = String(title || "")
+  const words = String(title || "")
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
     .replace(/[^A-Z0-9 ]/g, " ")
     .replace(/\s+/g, " ").trim()
-    .split(" ").slice(0, 8).join(" ");
+    .split(" ");
+  const detail = words.slice(0, 5).join(" ") + "...";
   return { hook, detail };
 }
 
@@ -81,8 +83,8 @@ const DEFAULT_SIZE = 1080;
 const FETCH_TIMEOUT_MS = 15000;
 const TOP_BAR_H = 100;
 const BOT_BAR_H = 185;
-const HOOK_FONT_SIZE = 56;
-const DETAIL_FONT_SIZE = 52;
+const HOOK_FONT_SIZE = 66;
+const DETAIL_FONT_SIZE = 60;
 const BORDER_W = 0; // side borders removed; kept as zero so text x-offset math still works
 
 function normaliseText(text) {
@@ -140,14 +142,14 @@ function buildOverlaySvg(hook, detail, size) {
     const w = measureTextWidth(norm, HOOK_FONT_SIZE);
     const x = Math.max(10, (size - w) / 2);
     const y = Math.floor(TOP_BAR_H / 2) + Math.floor(HOOK_FONT_SIZE / 2) - 4;
-    const pathEl = textToSvgPath(norm, x, y, HOOK_FONT_SIZE, "white");
-    content += `<rect x="0" y="0" width="${size}" height="${TOP_BAR_H}" fill="#c0161d" opacity="0.95"/>`;
+    const pathEl = textToSvgPath(norm, x, y, HOOK_FONT_SIZE, "#111111");
+    content += `<rect x="0" y="0" width="${size}" height="${TOP_BAR_H}" fill="#FFD600" opacity="0.97"/>`;
     if (pathEl) content += pathEl;
   }
 
   if (detail) {
     const barTop = size - BOT_BAR_H;
-    const lines = wrapText(normaliseText(detail), 28, 3);
+    const lines = wrapText(normaliseText(detail), 24, 3);
     const lineSpacing = DETAIL_FONT_SIZE + 10;
     const totalH = lines.length * lineSpacing;
     const startY = barTop + Math.floor((BOT_BAR_H - totalH) / 2) + DETAIL_FONT_SIZE;
