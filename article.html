@@ -228,15 +228,13 @@
               .map((p) => p.trim())
               .filter(Boolean);
 
-            const HEADER_WIDGET = '<style>div[data-widget-id="2007201"]{min-height:300px}</style><div data-type="_mgwidget" data-widget-id="2007201" style="margin:1.5rem 0;"></div>';
-            const INSERT_AFTER_PARAGRAPHS = 3; // ~6-7 lines worth of text
+            const HEADER_WIDGET = '<div data-type="_mgwidget" data-widget-id="2007201" style="margin:1.5rem 0;"></div>';
+            const INSERT_AT = [3, 6]; // after paragraph 3 (~7 lines) and paragraph 6 (~12 lines)
             const parts = [];
-            let widgetInserted = false;
             for (let i = 0; i < rawParagraphs.length; i++) {
               parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
-              if (!widgetInserted && i + 1 >= INSERT_AFTER_PARAGRAPHS) {
+              if (INSERT_AT.includes(i + 1) && i < rawParagraphs.length - 1) {
                 parts.push(HEADER_WIDGET);
-                widgetInserted = true;
               }
             }
 
