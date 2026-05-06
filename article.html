@@ -239,9 +239,10 @@
             if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
 
             // Load Adskeeper AFTER all widget divs are in the DOM so it scans them on first run.
+            // Cache-bust so Chrome always re-executes the script fresh.
             var adScript = document.createElement("script");
             adScript.async = true;
-            adScript.src = "https://jsc.adskeeper.com/site/1093029.js";
+            adScript.src = "https://jsc.adskeeper.com/site/1093029.js?t=" + Date.now();
             document.head.appendChild(adScript);
           } catch (e) {
             console.error("Failed to load article.", e);
