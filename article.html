@@ -227,7 +227,7 @@
               .filter(Boolean);
 
             const HEADER_WIDGET = '<div data-type="_mgwidget" data-widget-id="2007201" style="margin:1.5rem 0;"></div>';
-            const INSERT_AT = [3, 6]; // after paragraph 3 (~7 lines) and paragraph 6 (~12 lines)
+            const INSERT_AT = [1, 3]; // after paragraph 1 and after paragraph 3
             const parts = [];
             for (let i = 0; i < rawParagraphs.length; i++) {
               parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
