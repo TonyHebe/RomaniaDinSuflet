@@ -3,8 +3,8 @@ const FEEDS = [
   { name: "bursa-politica", url: "https://www.bursa.ro/politica", type: "html", baseUrl: "https://www.bursa.ro", linkPattern: /href="(\/[a-z0-9][a-z0-9-]*-\d{6,})"/g },
   { name: "romaniatv-politica", url: "https://www.romaniatv.net/politica/feed" },
   { name: "g4media-articole", url: "https://www.g4media.ro/articole/feed" },
-  { name: "ciao-news", url: "https://ciao.ro/news/feed/" },
-  { name: "unica-stiri", url: "https://www.unica.ro/stiri/feed" },
+  // ciao.ro removed — blocked
+  // unica.ro removed — blocked
   { name: "jli-stiri", url: "https://jli.ro/category/stiri/feed/" },
   // hotnews-politic removed — blocks Vercel IPs (403)
   // capital.ro removed — returns 403 (blocks scrapers)
