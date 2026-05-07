@@ -132,6 +132,7 @@ function parseEnvFlag(name, defaultValue) {
 }
 
 const FB_POST_TITLE_SUFFIX = "...Vezi in comentarii 👇👇";
+const FB_HASHTAGS = "\n\n#Romania #StiriRomania #RomaniaDinSuflet #stiri #actualitate";
 
 function buildFacebookPostTitle(title) {
   const t = String(title || "").replace(/\s+/g, " ").trim();
@@ -140,9 +141,10 @@ function buildFacebookPostTitle(title) {
   // If an upstream (AI/user) title contains it, strip and re-append consistently.
   const base = t.replace(/\s*(?:\.\.\.|…)?\s*vezi in comentarii[\s\S]*$/i, "").trim() || t;
   const endsWithEllipsis = /(\.\.\.|…)$/.test(base);
-  if (endsWithEllipsis) return `${base}Vezi in comentarii 👇👇`;
-  // Keep the suffix formatting consistent: `Title...Vezi in comentarii 👇👇`
-  return `${base.replace(/[\s.?!]+$/g, "")}${FB_POST_TITLE_SUFFIX}`;
+  const withCta = endsWithEllipsis
+    ? `${base}Vezi in comentarii 👇👇`
+    : `${base.replace(/[\s.?!]+$/g, "")}${FB_POST_TITLE_SUFFIX}`;
+  return withCta + FB_HASHTAGS;
 }
 
 function shouldRetryFacebookCommentError(err) {

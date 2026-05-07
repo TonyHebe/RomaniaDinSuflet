@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="./styles.css" />
     <!-- Vercel Web Analytics -->
     <script defer src="/_vercel/insights/script.js"></script>
+    <!-- Vercel Speed Insights -->
+    <script defer src="/_vercel/speed-insights/script.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Sari la conținut</a>
@@ -226,22 +228,39 @@
               .map((p) => p.trim())
               .filter(Boolean);
 
-            const HEADER_WIDGET = '<div data-type="_mgwidget" data-widget-id="2007201" style="margin:1.5rem 0;"></div>';
-            const INSERT_AT = [1, 3]; // after paragraph 1 and after paragraph 3
-            const parts = [];
-            for (let i = 0; i < rawParagraphs.length; i++) {
-              parts.push(`<p>${escapeHtml(rawParagraphs[i])}</p>`);
-              if (INSERT_AT.includes(i + 1) && i < rawParagraphs.length - 1) {
-                parts.push(HEADER_WIDGET);
+            function makeWidgetDiv(widgetId) {
+              const wrap = document.createElement("div");
+              wrap.style.margin = "1.5rem 0";
+              const div = document.createElement("div");
+              div.setAttribute("data-type", "_mgwidget");
+              div.setAttribute("data-widget-id", widgetId);
+              wrap.appendChild(div);
+              return wrap;
+            }
+
+            if (contentEl) {
+              contentEl.innerHTML = "";
+              if (rawParagraphs.length === 0) {
+                contentEl.innerHTML = "<p></p>";
+              } else {
+                rawParagraphs.forEach(function(text, i) {
+                  const p = document.createElement("p");
+                  p.textContent = text;
+                  contentEl.appendChild(p);
+                  if (i === 0) contentEl.appendChild(makeWidgetDiv("2007201"));
+                  if (i === 1) contentEl.appendChild(makeWidgetDiv("2007845"));
+                });
               }
             }
 
-            if (contentEl) contentEl.innerHTML = parts.join("") || "<p></p>";
-
-            // Load Adskeeper AFTER all widget divs are in the DOM so it scans them on first run.
-            // Cache-bust so Chrome always re-executes the script fresh.
+            // All widget divs are now in the DOM.
+            // Load the Adskeeper script — it will scan the full document for widget divs on load.
+            // onload: push _mgc.load so it rescans and picks up the dynamically injected widgets.
             var adScript = document.createElement("script");
-            adScript.async = true;
+            adScript.async = false;
+            adScript.onload = function() {
+              (function(w,q){w[q]=w[q]||[];w[q].push(["_mgc.load"])})(window,"_mgq");
+            };
             adScript.src = "https://jsc.adskeeper.com/site/1093029.js?t=" + Date.now();
             document.head.appendChild(adScript);
           } catch (e) {
@@ -269,6 +288,9 @@
     <script src="./script.js" defer></script>
     <!-- Adskeeper top pop-up widget -->
     <div data-type="_mgwidget" data-widget-id="2007206"></div>
+    <script>(function(w,q){w[q]=w[q]||[];w[q].push(["_mgc.load"])})(window,"_mgq");</script>
+    <!-- Adskeeper mobile toaster widget -->
+    <div data-type="_mgwidget" data-widget-id="2007762"></div>
     <script>(function(w,q){w[q]=w[q]||[];w[q].push(["_mgc.load"])})(window,"_mgq");</script>
   </body>
 </html>
