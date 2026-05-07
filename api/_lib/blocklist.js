@@ -25,7 +25,7 @@ export function getBlockedTitleSubstrings() {
   return parseCsvEnv("BLOCKED_TITLE_SUBSTRINGS");
 }
 
-const HARDCODED_BLOCKED_HOSTS = ["cancan.ro"];
+const HARDCODED_BLOCKED_HOSTS = ["cancan.ro", "ciao.ro", "unica.ro"];
 
 // Entertainment/non-political topics to filter out automatically.
 const HARDCODED_BLOCKED_TITLE_KEYWORDS = [
