@@ -75,7 +75,8 @@ export function buildFallbackTeaser(title) {
     .replace(/[^A-Z0-9 ]/g, " ")
     .replace(/\s+/g, " ").trim()
     .split(" ");
-  const detail = words.slice(0, 5).join(" ") + "...";
+  // Use 4 words max so the "..." always fits within the 24-char wrap limit
+  const detail = words.slice(0, 4).join(" ") + "...";
   return { hook, detail };
 }
 
@@ -108,6 +109,14 @@ function wrapText(text, maxChars, maxLines) {
     }
   }
   if (current && lines.length < maxLines) lines.push(current);
+  // Ensure the last line always ends with "..." for curiosity/suspense
+  if (lines.length > 0) {
+    const last = lines[lines.length - 1];
+    if (!last.endsWith("...")) {
+      const trimmed = last.replace(/[.\s]+$/, "");
+      lines[lines.length - 1] = trimmed.slice(0, maxChars - 3) + "...";
+    }
+  }
   return lines;
 }
 
