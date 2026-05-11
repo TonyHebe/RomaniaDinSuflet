@@ -148,12 +148,25 @@ function buildOverlaySvg(hook, detail, size) {
 
   if (hook) {
     const norm = normaliseText(hook);
-    const w = measureTextWidth(norm, HOOK_FONT_SIZE);
-    const x = Math.max(10, (size - w) / 2);
-    const y = Math.floor(TOP_BAR_H / 2) + Math.floor(HOOK_FONT_SIZE / 2) - 4;
-    const pathEl = textToSvgPath(norm, x, y, HOOK_FONT_SIZE, "#111111");
-    content += `<rect x="0" y="0" width="${size}" height="${TOP_BAR_H}" fill="#FFD600" opacity="0.97"/>`;
-    if (pathEl) content += pathEl;
+    const fontSize = HOOK_FONT_SIZE + 8;
+    const letterSpacingPx = 5;
+    const font = getFont();
+    // Measure total width including extra letter-spacing
+    const baseW = measureTextWidth(norm, fontSize);
+    const totalW = baseW + letterSpacingPx * Math.max(0, norm.length - 1);
+    let curX = Math.max(10, (size - totalW) / 2);
+    const y = Math.floor(TOP_BAR_H / 2) + Math.floor(fontSize / 2) - 4;
+    content += `<rect x="0" y="0" width="${size}" height="${TOP_BAR_H}" fill="#c0161d" opacity="0.97"/>`;
+    if (font) {
+      for (const ch of norm) {
+        try {
+          const path = font.getPath(ch, curX, y, fontSize);
+          const d = path.toPathData(2);
+          if (d) content += `<path d="${d}" fill="#111111" />`;
+          curX += font.getAdvanceWidth(ch, fontSize) + letterSpacingPx;
+        } catch { /* skip */ }
+      }
+    }
   }
 
   if (detail) {
