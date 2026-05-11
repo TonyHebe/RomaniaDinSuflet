@@ -162,7 +162,7 @@ function buildOverlaySvg(hook, detail, size) {
         try {
           const path = font.getPath(ch, curX, y, fontSize);
           const d = path.toPathData(2);
-          if (d) content += `<path d="${d}" fill="#111111" />`;
+          if (d) content += `<path d="${d}" fill="white" />`;
           curX += font.getAdvanceWidth(ch, fontSize) + letterSpacingPx;
         } catch { /* skip */ }
       }
@@ -172,16 +172,28 @@ function buildOverlaySvg(hook, detail, size) {
   if (detail) {
     const barTop = size - BOT_BAR_H;
     const lines = wrapText(normaliseText(detail), 24, 2);
+    const letterSpacingPx = 4;
     const lineSpacing = DETAIL_FONT_SIZE + 10;
     const totalH = lines.length * lineSpacing;
     const startY = barTop + Math.floor((BOT_BAR_H - totalH) / 2) + DETAIL_FONT_SIZE;
+    const font = getFont();
     content += `<rect x="0" y="${barTop}" width="${size}" height="${BOT_BAR_H}" fill="#c0161d" opacity="0.95"/>`;
     for (let i = 0; i < lines.length; i++) {
-      const lw = measureTextWidth(lines[i], DETAIL_FONT_SIZE);
-      const x = Math.max(10, (size - lw) / 2);
+      const line = lines[i];
+      const baseW = measureTextWidth(line, DETAIL_FONT_SIZE);
+      const totalW = baseW + letterSpacingPx * Math.max(0, line.length - 1);
+      let curX = Math.max(10, (size - totalW) / 2);
       const y = startY + i * lineSpacing;
-      const pathEl = textToSvgPath(lines[i], x, y, DETAIL_FONT_SIZE, "white");
-      if (pathEl) content += pathEl;
+      if (font) {
+        for (const ch of line) {
+          try {
+            const path = font.getPath(ch, curX, y, DETAIL_FONT_SIZE);
+            const d = path.toPathData(2);
+            if (d) content += `<path d="${d}" fill="white" />`;
+            curX += font.getAdvanceWidth(ch, DETAIL_FONT_SIZE) + letterSpacingPx;
+          } catch { /* skip */ }
+        }
+      }
     }
   }
 
