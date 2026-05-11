@@ -5,7 +5,7 @@ const FEEDS = [
   { name: "g4media-articole", url: "https://www.g4media.ro/articole/feed" },
   // ciao.ro removed — blocked
   // unica.ro removed — blocked
-  { name: "jli-stiri", url: "https://jli.ro/category/stiri/feed/" },
+  // jli.ro removed
   // hotnews-politic removed — blocks Vercel IPs (403)
   // capital.ro removed — returns 403 (blocks scrapers)
 ];
