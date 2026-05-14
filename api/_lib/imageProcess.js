@@ -1,7 +1,9 @@
 import sharp from "sharp";
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "fs";
+import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { tmpdir } from "os";
+import { createRequire } from "module";
 import opentype from "opentype.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -354,5 +356,92 @@ export async function cropToSquare(imageUrl, size = DEFAULT_SIZE, teaser = null)
       `[imageProcess] even solid-background fallback failed: ${String(err?.message || err)}`,
     );
     return null;
+  }
+}
+
+const REEL_WIDTH = 1080;
+const REEL_HEIGHT = 1920;
+const REEL_DURATION_SECONDS = 5;
+
+/**
+ * Converts a square JPEG image buffer (from cropToSquare) into a short portrait
+ * MP4 video suitable for posting as a Facebook Reel (9:16, H.264, ~5 seconds).
+ *
+ * The image is centred on a dark background letterbox (top & bottom padding).
+ * Returns a Buffer with the MP4 contents, or null on failure.
+ *
+ * @param {Buffer} imageBuffer - JPEG buffer from cropToSquare (1080×1080)
+ * @returns {Promise<Buffer|null>}
+ */
+export async function imageToReelVideo(imageBuffer) {
+  if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) return null;
+
+  let tmpDir = null;
+  try {
+    // Pad the square image to 9:16 portrait by placing it centred on a dark background.
+    const topPad = Math.floor((REEL_HEIGHT - REEL_WIDTH) / 2);
+    const portraitBuffer = await sharp({
+      create: {
+        width: REEL_WIDTH,
+        height: REEL_HEIGHT,
+        channels: 3,
+        background: { r: 20, g: 20, b: 24 },
+      },
+    })
+      .composite([{ input: imageBuffer, top: topPad, left: 0 }])
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    // Write the portrait image to a temp directory, run ffmpeg to produce MP4.
+    tmpDir = mkdtempSync(join(tmpdir(), "rds-reel-"));
+    const imgPath = join(tmpDir, "frame.jpg");
+    const outPath = join(tmpDir, "reel.mp4");
+    writeFileSync(imgPath, portraitBuffer);
+
+    const _require = createRequire(import.meta.url);
+    let ffmpegPath;
+    try {
+      ffmpegPath = _require("ffmpeg-static");
+    } catch {
+      console.warn("[imageProcess] ffmpeg-static not found, skipping Reel video generation");
+      return null;
+    }
+
+    const ffmpeg = _require("fluent-ffmpeg");
+    ffmpeg.setFfmpegPath(ffmpegPath);
+
+    await new Promise((resolve, reject) => {
+      ffmpeg()
+        .input(imgPath)
+        .inputOptions([
+          "-loop 1",
+          `-t ${REEL_DURATION_SECONDS}`,
+          "-framerate 25",
+        ])
+        .videoCodec("libx264")
+        .outputOptions([
+          "-pix_fmt yuv420p",
+          "-preset fast",
+          "-crf 28",
+          // Ensure dimensions are even (required by libx264)
+          `-vf scale=${REEL_WIDTH}:${REEL_HEIGHT}`,
+          `-t ${REEL_DURATION_SECONDS}`,
+          "-movflags +faststart",
+        ])
+        .output(outPath)
+        .on("end", resolve)
+        .on("error", reject)
+        .run();
+    });
+
+    const videoBuffer = readFileSync(outPath);
+    return videoBuffer;
+  } catch (err) {
+    console.error(`[imageProcess] imageToReelVideo failed: ${String(err?.message || err)}`);
+    return null;
+  } finally {
+    if (tmpDir) {
+      try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
   }
 }

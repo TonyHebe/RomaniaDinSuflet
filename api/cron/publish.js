@@ -44,11 +44,13 @@ async function getDeps() {
     postPhotoToFacebook: facebook.postPhotoToFacebook,
     postPhotoBufferToFacebook: facebook.postPhotoBufferToFacebook,
     postLinkToFacebook: facebook.postLinkToFacebook,
+    postReelToFacebook: facebook.postReelToFacebook,
     sleep: facebook.sleep,
     // image processing
     cropToSquare: imageProcess.cropToSquare,
     pickFallbackTeaser: imageProcess.pickFallbackTeaser,
     buildFallbackTeaser: imageProcess.buildFallbackTeaser,
+    imageToReelVideo: imageProcess.imageToReelVideo,
     // storage
     uploadImageBuffer: storage.uploadImageBuffer,
   };
@@ -215,11 +217,13 @@ export default async function handler(req, res) {
       postPhotoToFacebook,
       postPhotoBufferToFacebook,
       postLinkToFacebook,
+      postReelToFacebook,
       sleep,
       cropToSquare,
       pickFallbackTeaser,
       buildFallbackTeaser,
       generateImageTeaser,
+      imageToReelVideo,
       uploadImageBuffer,
     } = await getDeps();
 
@@ -601,6 +605,48 @@ export default async function handler(req, res) {
         }
       }
 
+      // Optional Facebook Reel posting.
+      // Enabled with FB_REEL=1 (requires FB_PAGE_ID + FB_PAGE_TOKEN).
+      // Generates a short portrait MP4 from the article image and posts it as a Reel.
+      let fbReelVideoId = null;
+      let fbReelOk = false;
+      let fbReelError = null;
+      const fbReelEnabled = parseEnvFlag("FB_REEL", false) &&
+        Boolean(process.env.FB_PAGE_ID && process.env.FB_PAGE_TOKEN);
+
+      if (fbReelEnabled) {
+        try {
+          const reelSourceBuffer = croppedBufferForArticle ||
+            (finalImageUrl
+              ? await cropToSquare(
+                  normalizeOgImageUrl(finalImageUrl, siteUrl),
+                  1080,
+                  buildFallbackTeaser(finalTitle),
+                )
+              : null);
+
+          if (reelSourceBuffer) {
+            const videoBuffer = await imageToReelVideo(reelSourceBuffer);
+            if (videoBuffer) {
+              const reelDescription = buildFacebookPostTitle(finalTitle) + "\n\n" + shareUrl;
+              const reelResp = await postReelToFacebook({
+                buffer: videoBuffer,
+                description: reelDescription,
+              });
+              fbReelVideoId = reelResp?.videoId || null;
+              fbReelOk = Boolean(reelResp?.success);
+            } else {
+              fbReelError = "Video encoding failed (ffmpeg unavailable or image error)";
+            }
+          } else {
+            fbReelError = "No image available for Reel";
+          }
+        } catch (err) {
+          fbReelError = formatError(err);
+          console.error("[publish] FB Reel posting failed (non-fatal): " + fbReelError);
+        }
+      }
+
       await markSourcePosted(job.id, {
         publishedSlug,
         fbPostId,
@@ -630,6 +676,12 @@ export default async function handler(req, res) {
             comment: { id: fbCommentId, targetId: fbCommentTargetId },
             raw: fbRaw,
             error: fbError,
+          },
+          facebookReel: {
+            enabled: fbReelEnabled,
+            ok: fbReelEnabled ? fbReelOk : null,
+            videoId: fbReelVideoId,
+            error: fbReelError,
           },
         },
       });

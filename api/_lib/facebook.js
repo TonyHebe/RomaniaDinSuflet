@@ -305,3 +305,110 @@ export async function commentOnFacebookPost({ postId, message } = {}) {
   return resp?.id || null;
 }
 
+/**
+ * Publishes a video Buffer as a Facebook Reel on the Page.
+ *
+ * The Facebook Reels API requires three steps:
+ *   1. Initialize an upload session → get video_id + upload_url
+ *   2. Upload the raw MP4 binary to rupload.facebook.com
+ *   3. Finish / publish the Reel
+ *
+ * @param {{ buffer: Buffer, description?: string }} opts
+ * @returns {Promise<{ videoId: string, success: boolean, raw: object }>}
+ */
+export async function postReelToFacebook({ buffer, description = "" } = {}) {
+  const pageId = mustGetEnv("FB_PAGE_ID");
+  const token = mustGetEnv("FB_PAGE_TOKEN");
+  if (!buffer || !Buffer.isBuffer(buffer)) throw new Error("Missing video buffer");
+
+  const timeoutMs = Number.parseInt(process.env.FB_TIMEOUT_MS || "60000", 10);
+  const base = "https://graph.facebook.com/v21.0";
+
+  // ── Step 1: Initialize upload session ──────────────────────────────────────
+  const initUrl = new URL(`${base}/${pageId}/video_reels`);
+  initUrl.searchParams.set("upload_phase", "start");
+  initUrl.searchParams.set("access_token", token);
+
+  const initController = new AbortController();
+  const initTimer = setTimeout(() => initController.abort(new Error("Facebook timeout")), timeoutMs);
+  let initRes;
+  try {
+    initRes = await fetch(initUrl, { method: "POST", signal: initController.signal });
+  } finally {
+    clearTimeout(initTimer);
+  }
+  const initJson = await initRes.json().catch(() => ({}));
+  if (!initRes.ok || initJson?.error) {
+    if (initJson?.error) throw new FacebookGraphError(initJson.error, { status: initRes.status });
+    throw new FacebookGraphError(initJson, { status: initRes.status });
+  }
+  const videoId = initJson?.video_id;
+  const uploadUrl = initJson?.upload_url;
+  if (!videoId || !uploadUrl) {
+    throw new FacebookGraphError(
+      { message: `Unexpected init response: ${JSON.stringify(initJson)}` },
+      { status: initRes.status },
+    );
+  }
+
+  // ── Step 2: Upload the video binary ───────────────────────────────────────
+  // Facebook requires the upload to go to rupload.facebook.com (not graph.facebook.com).
+  const uploadController = new AbortController();
+  // Large files can take a while; use 3× the normal timeout.
+  const uploadTimer = setTimeout(
+    () => uploadController.abort(new Error("Facebook upload timeout")),
+    timeoutMs * 3,
+  );
+  let uploadRes;
+  try {
+    uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `OAuth ${token}`,
+        offset: "0",
+        file_size: String(buffer.byteLength),
+        "Content-Type": "application/octet-stream",
+      },
+      body: buffer,
+      signal: uploadController.signal,
+    });
+  } finally {
+    clearTimeout(uploadTimer);
+  }
+  const uploadJson = await uploadRes.json().catch(() => ({}));
+  if (!uploadRes.ok || uploadJson?.error) {
+    if (uploadJson?.error) throw new FacebookGraphError(uploadJson.error, { status: uploadRes.status });
+    throw new FacebookGraphError(uploadJson, { status: uploadRes.status });
+  }
+  if (!uploadJson?.success) {
+    throw new FacebookGraphError(
+      { message: `Video upload did not return success: ${JSON.stringify(uploadJson)}` },
+      { status: uploadRes.status },
+    );
+  }
+
+  // ── Step 3: Publish the Reel ───────────────────────────────────────────────
+  const publishUrl = new URL(`${base}/${pageId}/video_reels`);
+  publishUrl.searchParams.set("upload_phase", "finish");
+  publishUrl.searchParams.set("video_id", videoId);
+  publishUrl.searchParams.set("video_state", "PUBLISHED");
+  publishUrl.searchParams.set("access_token", token);
+  if (description) publishUrl.searchParams.set("description", String(description));
+
+  const pubController = new AbortController();
+  const pubTimer = setTimeout(() => pubController.abort(new Error("Facebook timeout")), timeoutMs);
+  let pubRes;
+  try {
+    pubRes = await fetch(publishUrl, { method: "POST", signal: pubController.signal });
+  } finally {
+    clearTimeout(pubTimer);
+  }
+  const pubJson = await pubRes.json().catch(() => ({}));
+  if (!pubRes.ok || pubJson?.error) {
+    if (pubJson?.error) throw new FacebookGraphError(pubJson.error, { status: pubRes.status });
+    throw new FacebookGraphError(pubJson, { status: pubRes.status });
+  }
+
+  return { videoId, success: Boolean(pubJson?.success), raw: pubJson };
+}
+

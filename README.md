@@ -162,6 +162,21 @@ Optional:
 
 - Set `FB_COMMENT_LINK=0` to disable adding the share URL as the first comment.
 
+### Facebook Reels (auto-post as a Reel in addition to the regular post)
+
+Set `FB_REEL=1` to also post each article as a **Facebook Reel**. When enabled, the system:
+
+1. Takes the article's processed square image (1080×1080, with the branded overlay bars).
+2. Pads it to portrait 9:16 (1080×1920) on a dark background.
+3. Encodes it as a short MP4 video (~5 seconds, H.264).
+4. Publishes it via the Facebook Reels API on the same Page.
+
+The Reel description includes the article title + CTA + the share URL so viewers can click through.
+
+Requirements: `FB_PAGE_ID` + `FB_PAGE_TOKEN` (same as the regular post, same permissions). Reel posting is **best-effort** — if it fails for any reason the regular post is not affected.
+
+> **Note**: Facebook Reels require a video file — this is handled automatically by the pipeline using `ffmpeg-static` (bundled). No additional server setup is needed.
+
 ### Required Facebook setup
 
 - `FB_PAGE_ID`: your Facebook Page ID
