@@ -27,6 +27,29 @@ export function getBlockedTitleSubstrings() {
 
 const HARDCODED_BLOCKED_HOSTS = ["cancan.ro", "ciao.ro", "unica.ro"];
 
+// Financial fraud / scam keywords — Meta flags these as policy violations
+// even when the article is legitimate reporting, causing account restrictions.
+const HARDCODED_BLOCKED_FRAUD_KEYWORDS = [
+  "escrocherie",
+  "escroc",
+  "frauda",
+  "inselaciune",
+  "inselat",
+  "schema ponzi",
+  "schema piramidala",
+  "piramida financiara",
+  "spalare de bani",
+  "spalare bani",
+  "trafic de influenta",
+  "mita",
+  "coruptie",
+  "retea de frauda",
+  "crypto frauda",
+  "investitie falsa",
+  "investitii false",
+  "fals si uz de fals",
+];
+
 // Entertainment/non-political topics to filter out automatically.
 const HARDCODED_BLOCKED_TITLE_KEYWORDS = [
   "survivor",
@@ -95,7 +118,15 @@ export function isBlockedTitle(title) {
   const tNorm = normalizeForCompare(title);
   if (!tNorm) return { blocked: false, reason: null };
 
-  // Check hardcoded entertainment keywords first.
+  // Check financial fraud keywords — Meta policy risk.
+  for (const kw of HARDCODED_BLOCKED_FRAUD_KEYWORDS) {
+    const kwNorm = normalizeForCompare(kw);
+    if (kwNorm && tNorm.includes(kwNorm)) {
+      return { blocked: true, reason: `Blocked fraud keyword: ${kw}` };
+    }
+  }
+
+  // Check hardcoded entertainment keywords.
   for (const kw of HARDCODED_BLOCKED_TITLE_KEYWORDS) {
     const kwNorm = normalizeForCompare(kw);
     if (kwNorm && tNorm.includes(kwNorm)) {
