@@ -16,6 +16,16 @@ const bearer = process.env.CRON_AUTH_BEARER || "";
 const callTimeoutMs = Number.parseInt(process.env.CRON_CALL_TIMEOUT_MS || "20000", 10);
 const perCallRetries = Number.parseInt(process.env.CRON_PER_CALL_RETRIES || "4", 10);
 const baseDelayMs = Number.parseInt(process.env.CRON_RETRY_BASE_DELAY_MS || "800", 10);
+
+// Random jitter: wait 0–8 minutes before the first call so posts don't land
+// on a perfectly mechanical schedule (e.g. always at :00, :10, :20 …).
+// CRON_JITTER_MAX_MS overrides the default 8-minute ceiling.
+const jitterMaxMs = Number.parseInt(process.env.CRON_JITTER_MAX_MS || String(8 * 60 * 1000), 10);
+if (jitterMaxMs > 0) {
+  const jitterMs = Math.floor(Math.random() * jitterMaxMs);
+  console.log(`jitter: sleeping ${Math.round(jitterMs / 1000)}s before first call`);
+  await new Promise((resolve) => setTimeout(resolve, jitterMs));
+}
  
 if (!url) {
   console.error("Missing CRON_URL env var (set this secret in GitHub Actions).");
