@@ -24,6 +24,7 @@ jobs:
         run: node scripts/publish-cron.mjs
         env:
           CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           MAX_CALLS_PER_RUN: 1
           # maxDuration is 120s on Vercel. The two independent AI calls now run in
           # parallel (image teaser + FB title), saving ~5–10s vs. the old sequential flow.
