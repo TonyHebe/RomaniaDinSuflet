@@ -30,4 +30,8 @@ jobs:
           # Give 130s here so the client never times out before Vercel does.
           CRON_CALL_TIMEOUT_MS: 130000
           CRON_PER_CALL_RETRIES: 1
+          # Random delay before posting — spreads posts across the full hour so
+          # they don't always land at :00/:01 (which looks like a bot to the algorithm).
+          # 3 000 000 ms = 50 minutes.
+          CRON_JITTER_MAX_MS: "3000000"
 
